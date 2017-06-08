@@ -42,7 +42,7 @@ def _soup(text, tag):
 
 def _get_comments_count(url):
     main_doc = _page(url)
-    m = re.match(r"^(\d+) comments?:$", main_doc.select(".comments")[0].h4.string)
+    m = re.match(r"^(\d+) comments?:$", main_doc.select_one(".comments").h4.string)
     return int(m.group(1))
 
 def _get_comments(url):
@@ -52,7 +52,7 @@ def _get_comments(url):
 
     for page in range(1, page_count + 1):
         page_url = url if page == 1 else url + ("?commentPage=%d" % page)
-        page_comments = copy(_page(page_url).select("#comments-block")[0])
+        page_comments = copy(_page(page_url).select_one("#comments-block"))
 
         # remove "Delete Comment" buttons
         for x in page_comments.select(".blog-admin"):
@@ -189,7 +189,7 @@ def _gen_blog_archive(url_to_root, cur_year, cur_month):
             e = _soup(e, "ul")
             if p.year == cur_year:
                 years[p.year].append(e)
-                months[(p.year, p.month)] = e.select(".posts")[0]
+                months[(p.year, p.month)] = e.select_one(".posts")
 
         if (p.year, p.month) == (cur_year, cur_month):
             parent = months[(p.year, p.month)]
@@ -272,7 +272,7 @@ def _gen_sidebar(page_url, url_to_root):
     # Replace the sidebar with the one from the source document.
     src = _page(page_url)
 
-    ret = copy(src.select('#sidebarbottom-wrap1')[0])
+    ret = copy(src.select_one('#sidebarbottom-wrap1'))
 
     # Fixup the images in the sidebar -- downscale them to 214px wide
     for x in ret.select("div.widget.Image"):
@@ -294,7 +294,7 @@ def _gen_sidebar(page_url, url_to_root):
 
     # Fixup the blog archive
     year, month, _ = parse_tar_url(page_url)
-    ret.select("#BlogArchive1_ArchiveList")[0].replace_with(_gen_blog_archive(url_to_root, year, month))
+    ret.select_one("#BlogArchive1_ArchiveList").replace_with(_gen_blog_archive(url_to_root, year, month))
 
     return ret
 
@@ -341,21 +341,21 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
                 </div>
             </div>""",
         "div")
-    date_outer.select(".date-header")[0].replace_with(copy(doc.select('.date-header')[0]))
-    date_outer.select(".post")[0].replace_with(copy(doc.select('.post')[0]))
-    footer = date_outer.select(".post-footer")[0]
+    date_outer.select_one(".date-header").replace_with(copy(doc.select_one('.date-header')))
+    date_outer.select_one(".post").replace_with(copy(doc.select_one('.post')))
+    footer = date_outer.select_one(".post-footer")
     for x in footer.select(".reaction-buttons, .post-comment-link, .post-icons, .post-share-buttons, .post-footer-line-2, .post-footer-line-3"):
         x.decompose()
 
     if should_add_hyperlinks:
         # Title hyperlink
-        title_element = date_outer.select(".post-title")[0]
+        title_element = date_outer.select_one(".post-title")
         anchor = _soup("""<a href="%s"></a>""" % page_url, "a")
         for x in reversed(title_element.contents):
             anchor.insert(0, x)
         title_element.append(anchor)
         # Comments hyperlink
-        footer.select(".post-footer-line-1")[0].append(_soup("""
+        footer.select_one(".post-footer-line-1").append(_soup("""
                 <span class="post-comment-link">
                     <a class="comment-link" href="%(url)s#comments">%(comments)s:</a>
                 </span>
@@ -378,18 +378,18 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
                     </div>
                 </div>""" % {"comments" : _count_string(total_comments, "comment")},
             "div")
-        comments_div_dl = comments_div.select("#comments-block")[0]
+        comments_div_dl = comments_div.select_one("#comments-block")
         for e in comment_elements:
             comments_div_dl.append(e)
-        date_outer.select(".comments")[0].replace_with(comments_div)
+        date_outer.select_one(".comments").replace_with(comments_div)
         _compress_comments_html(comments_div_dl)
     else:
-        date_outer.select(".comments")[0].decompose()
+        date_outer.select_one(".comments").decompose()
 
     # Attach the post ID to the post element.  Ordinarily, it's on an
     # "<a name>", but those are marked obsolete now, so best not to use them?
-    post_id = str(date_outer.find_all("meta", itemprop="postId")[0].attrs["content"])
-    post_el = date_outer.select(".post")[0]
+    post_id = str(date_outer.find("meta", itemprop="postId").attrs["content"])
+    post_el = date_outer.select_one(".post")
     assert "id" not in post_el.attrs
     post_el.attrs["id"] = post_id
 
@@ -619,18 +619,18 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
 
 def _generate_common(page_url, url_to_root):
     out = _soup(MAIN_TEMPLATE % {"resources" : url_to_root + "/resources"}, None)
-    out.select("#sidebarbottom-wrap1")[0].replace_with(_gen_sidebar(page_url, url_to_root))
+    out.select_one("#sidebarbottom-wrap1").replace_with(_gen_sidebar(page_url, url_to_root))
     return out
 
 
 def generate_single_post(page_url):
     doc = _page(page_url)
     out = _generate_common(page_url, "../..")
-    post_parent = out.select(".blog-posts")[0]
+    post_parent = out.select_one(".blog-posts")
     post_parent.append(_gen_blog_post(page_url, True, False))
 
     # Page navigation
-    out.select(".blog-pager")[0].replace_with(copy(doc.select('.blog-pager')[0]))
+    out.select_one(".blog-pager").replace_with(copy(doc.select_one('.blog-pager')))
 
     out.title.replace_with(copy(doc.title))
     _fixup_images_and_hyperlinks(out, "../..")
@@ -651,7 +651,7 @@ def generate_month(year, month):
     # Generate the document and add the month's posts.
     doc = _page(posts[0].url)
     out = _generate_common(posts[0].url, "../..")
-    post_parent = out.select(".blog-posts")[0]
+    post_parent = out.select_one(".blog-posts")
     for p in posts:
         post_parent.append(_gen_blog_post(p.url, False, True))
 
@@ -673,7 +673,7 @@ def generate_month(year, month):
             <a class="home-link" href="http://thearchdruidreport.blogspot.com/">Home</a>
         </div>
         """
-    out.select(".blog-pager")[0].replace_with(_soup(pager_html, "div"))
+    out.select_one(".blog-pager").replace_with(_soup(pager_html, "div"))
 
     out.title.string = "The Archdruid Report: %s %04d" % (_month_name(month), year)
     _fixup_images_and_hyperlinks(out, "../..")
