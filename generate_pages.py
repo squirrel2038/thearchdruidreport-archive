@@ -182,11 +182,12 @@ def _gen_blog_archive(url_to_root, cur_year, cur_month):
                 "count": len([x for x in posts if (x.year, x.month) == (p.year, p.month)]),
             }
             e = _soup(e, "ul")
-            years[p.year].append(e)
-            months[(p.year, p.month)] = e.select(".posts")[0]
+            if p.year == cur_year:
+                years[p.year].append(e)
+                months[(p.year, p.month)] = e.select(".posts")[0]
 
-        parent = months[(p.year, p.month)]
         if (p.year, p.month) == (cur_year, cur_month):
+            parent = months[(p.year, p.month)]
             parent.append(_soup('<li><a href="%s/%s">%s</a></li>' % (url_to_root, p.page, html.escape(p.title, False)), "li"))
 
     return ret
