@@ -109,8 +109,8 @@ def load_posts():
         e = Post()
         e.title = post["title"]
         e.url = post["url"]
-        e.year, e.month, page = parse_tar_url(e.url)
-        e.page = "%04d/%02d/%s" % (e.year, e.month, page)
+        e.year, e.month, e.page = parse_tar_url(e.url)
+        e.relurl = "%04d/%02d/%s" % (e.year, e.month, e.page)
         ret.append(e)
     return ret
 
@@ -193,7 +193,7 @@ def _gen_blog_archive(url_to_root, cur_year, cur_month):
 
         if (p.year, p.month) == (cur_year, cur_month):
             parent = months[(p.year, p.month)]
-            parent.append(_soup('<li><a href="%s/%s">%s</a></li>' % (url_to_root, p.page, html.escape(p.title, False)), "li"))
+            parent.append(_soup('<li><a href="%s/%s">%s</a></li>' % (url_to_root, p.relurl, html.escape(p.title, False)), "li"))
 
     return ret
 
@@ -705,10 +705,10 @@ def _generate_posts_js(resources_path):
     lines = []
     lines.append("var blog_archive_posts = {\n")
     for year, month in sorted(set([(p.year, p.month) for p in all_posts]))[::-1]:
-        lines.append("  '%04d_%02d' : [\n" % (year, month))
+        lines.append("'%04d_%02d':[\n" % (year, month))
         for post in [p for p in all_posts if (p.year, p.month) == (year, month)]:
-            lines.append('    [%s, %s],\n' % (json.dumps(html.escape(post.title, False)), json.dumps(post.page)))
-        lines.append("  ],\n")
+            lines.append('[%s,%s],\n' % (json.dumps(html.escape(post.title, False)), json.dumps(post.page)))
+        lines.append("],\n")
     lines.append("};\n")
     util.set_file_text(os.path.join(resources_path, "posts.js"), "".join(lines))
 

@@ -77,7 +77,7 @@ var arc_tog = (function() {
                     var newhtml = "";
                     for (var i = 0; i < posts.length; ++i) {
                         var title = posts[i][0];
-                        var url = "../../" + posts[i][1];
+                        var url = "../../" + id.replace("_", "/") + "/" + posts[i][1];
                         newhtml += '<li><a href="' + url + '">' + title + '</li>\n';
                     }
                     ep.innerHTML = newhtml;
