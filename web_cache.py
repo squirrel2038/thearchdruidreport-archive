@@ -11,6 +11,12 @@ import util
 
 web_cache_DIR = os.path.dirname(__file__) + "/web_cache"
 POST_REQUEST_SLEEP_TIME = 2.0
+_lock = None
+
+
+def set_lock(lock):
+    global _lock
+    _lock = lock
 
 
 # Use \\?\C:\path\file syntax to: (a) avoid path length limits and (b) avoid device files.
@@ -21,7 +27,7 @@ def _fixup_win32_path(path):
     elif re.match(r"\\\\[^\\]+\\"):
         return "\\\\UNC\\" + path[2:]
     else:
-        sys.exit("ERROR: unrecognized Windows path: " + path)
+        raise RuntimeError("ERROR: unrecognized Windows path: " + path)
 
 
 _scheme_re = re.compile(r"^(?:file|http|https):")
@@ -63,52 +69,54 @@ def _canonurl(url):
         return url
     else:
         # In particular, we need to detect file: and disallow it.
-        sys.exit("ERROR: invalid URL scheme: " + url)
+        raise RuntimeError("ERROR: invalid URL scheme: " + url)
 
 
 def has(url):
-    return os.path.exists(_canonbase(_canonurl(url)) + ".url")
+    with _lock:
+        return os.path.exists(_canonbase(_canonurl(url)) + ".url")
 
 class ResourceNotAvailable(Exception):
     pass
 
 
 def get(url):
-    url = _canonurl(url)
-    path = _canonbase(url)
+    with _lock:
+        url = _canonurl(url)
+        path = _canonbase(url)
 
-    if not os.path.exists(path + ".url") or not (os.path.exists(path + ".data") or os.path.exists(path + ".fail")):
-        print("requesting", url)
-        sys.stdout.flush()
-        try:
-            r = requests.get(url)
-            if r.status_code not in [200, 403, 404, 410, 500, 504]:
-                sys.exit("ERROR: bad status code: " + str(r.status_code))
-            if r.status_code == 200:
-                util.set_file_data(path + ".data", r.content)
-            else:
-                print("WARNING: %d error downloading URL: %s" % (r.status_code, url))
-                sys.stdout.flush()
-                util.set_file_text(path + ".fail", str(r.status_code) + "\n")
-        except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as err:
-            print("WARNING: Connection error downloading URL: %s\n  %s" % (url, repr(err)))
+        if not os.path.exists(path + ".url") or not (os.path.exists(path + ".data") or os.path.exists(path + ".fail")):
+            print("requesting", url)
             sys.stdout.flush()
-            util.set_file_text(path + ".fail", repr(err) + "\n")
-        util.set_file_text(path + ".timestamp", datetime.now().isoformat())
-        util.set_file_text(path + ".url", url)
-        time.sleep(POST_REQUEST_SLEEP_TIME)
+            try:
+                r = requests.get(url)
+                if r.status_code not in [200, 403, 404, 410, 500, 504]:
+                    raise RuntimeError("ERROR: bad status code: " + str(r.status_code))
+                if r.status_code == 200:
+                    util.set_file_data(path + ".data", r.content)
+                else:
+                    print("WARNING: %d error downloading URL: %s" % (r.status_code, url))
+                    sys.stdout.flush()
+                    util.set_file_text(path + ".fail", str(r.status_code) + "\n")
+            except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as err:
+                print("WARNING: Connection error downloading URL: %s\n  %s" % (url, repr(err)))
+                sys.stdout.flush()
+                util.set_file_text(path + ".fail", repr(err) + "\n")
+            util.set_file_text(path + ".timestamp", datetime.now().isoformat())
+            util.set_file_text(path + ".url", url)
+            time.sleep(POST_REQUEST_SLEEP_TIME)
 
-    assert util.get_file_text(path + ".url") == url
-    has_data = os.path.exists(path + ".data")
-    has_fail = os.path.exists(path + ".fail")
-    if has_data and has_fail:
-        sys.exit("ERROR: Both %(path)s.data and %(path)s.fail exist" % {"path": path})
-    if has_data:
-        with open(path + ".data", "rb") as fp:
-            return fp.read()
-    if has_fail:
-        raise ResourceNotAvailable()
-    sys.exit("ERROR: internal error on URL " + url)
+        assert util.get_file_text(path + ".url") == url
+        has_data = os.path.exists(path + ".data")
+        has_fail = os.path.exists(path + ".fail")
+        if has_data and has_fail:
+            raise RuntimeError("ERROR: Both %(path)s.data and %(path)s.fail exist" % {"path": path})
+        if has_data:
+            with open(path + ".data", "rb") as fp:
+                return fp.read()
+        if has_fail:
+            raise ResourceNotAvailable()
+        raise RuntimeError("ERROR: internal error on URL " + url)
 
 
 if __name__ == "__main__":

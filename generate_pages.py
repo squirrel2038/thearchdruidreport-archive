@@ -11,17 +11,20 @@ from copy import copy
 import hashlib
 import html
 import json
+import multiprocessing
 import os
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import urllib.request
 
 import web_cache
 import util
 
 _page_cache = {}
+_lock = None
 
 OUTPUT_DIRECTORY = "the-archdruid-report"
 
@@ -466,20 +469,21 @@ def _intern_image(url, image_type=IMAGE_TYPE_NORMAL):
     if extension is None:
         return None
 
-    extra_cnt = 1
-    extra_txt = ""
-    while True:
-        path = base_dir + "/" + name + extra_txt + extension
-        path_disk = OUTPUT_DIRECTORY + "/" + path
-        if os.path.exists(path_disk):
-            if util.get_file_data(path_disk) == img_bytes:
-                break
+    with _lock:
+        extra_cnt = 1
+        extra_txt = ""
+        while True:
+            path = base_dir + "/" + name + extra_txt + extension
+            path_disk = OUTPUT_DIRECTORY + "/" + path
+            if os.path.exists(path_disk):
+                if util.get_file_data(path_disk) == img_bytes:
+                    break
+                else:
+                    extra_cnt += 1
+                    extra_txt = "-%d" % extra_cnt
             else:
-                extra_cnt += 1
-                extra_txt = "-%d" % extra_cnt
-        else:
-            util.set_file_data(path_disk, img_bytes)
-            break
+                util.set_file_data(path_disk, img_bytes)
+                break
 
     return path
 
@@ -624,6 +628,9 @@ def _generate_common(page_url, url_to_root):
 
 
 def generate_single_post(page_url):
+    print("Generating page for %s ..." % page_url)
+    sys.stdout.flush()
+
     doc = _page(page_url)
     out = _generate_common(page_url, "../..")
     post_parent = out.select_one(".blog-posts")
@@ -638,6 +645,9 @@ def generate_single_post(page_url):
 
 
 def generate_month(year, month):
+    print("Generating month %04d/%02d ..." % (year, month))
+    sys.stdout.flush()
+
     # Find the posts to include and to link to.
     all_posts = load_posts()
     posts = [p for p in all_posts if (p.year, p.month) == (year, month)]
@@ -738,14 +748,14 @@ def _intern_css_images(css, base_url):
                 url = re.match(r"(https?://[^/]+)/", base_url).group(1) + url
             path = _intern_image(url, IMAGE_TYPE_RESOURCE)
             if not path:
-                sys.exit("ERROR: _intern_css_images: %s" % url)
+                raise RuntimeError("ERROR: _intern_css_images: %s" % url)
             url = "../" + path
         ret.append('url("%s")' % url)
         i = m.end()
     return "".join(ret)
 
 
-def _copy_resources():
+def _gen_resources():
     # Copy the initial template.
     if os.path.exists(OUTPUT_DIRECTORY + "/resources"):
         shutil.rmtree(OUTPUT_DIRECTORY + "/resources")
@@ -777,61 +787,72 @@ def _copy_resources():
     _generate_posts_js(OUTPUT_DIRECTORY + "/resources")
 
 
-def _generate_everything():
+def _generate_everything(apply_):
     if os.path.exists(OUTPUT_DIRECTORY):
         shutil.rmtree(OUTPUT_DIRECTORY)
 
     # Quick, common stuff
-    _copy_resources()
+    _gen_resources()
     generate_redirects()
 
     # Monthly indices
     all_posts = load_posts()
     for y, m in sorted(set([(p.year, p.month) for p in all_posts])):
-        print("Generating %04d/%02d index ..." % (y, m))
-        sys.stdout.flush()
-        generate_month(y, m)
+        apply_(generate_month, (y, m))
 
     # Individual posts
     for p in all_posts[::-1]:
-        print("Generating page for %s ..." % p.url)
-        sys.stdout.flush()
-        generate_single_post(p.url)
+        apply_(generate_single_post, (p.url,))
 
 
-def _small_test_run():
-    if os.path.exists(OUTPUT_DIRECTORY):
-        shutil.rmtree(OUTPUT_DIRECTORY)
-    _copy_resources()
-    generate_redirects()
+def _small_test_run(apply_):
+    _gen_resources()
     for year in [2012, 2013]:
         for month in range(1, 13):
-            print("Generating month %04d/%02d ..." % (year, month))
-            generate_month(year, month)
+            apply_(generate_month, (year, month))
     for p in load_posts():
         if 2012 <= p.year <= 2013:
-            print("Generating page for %s ..." % p.url)
-            sys.stdout.flush()
-            generate_single_post(p.url)
+            apply_(generate_single_post, (p.url,))
 
 
-def main():
-    #_copy_resources()
+def main(apply_):
+    #_gen_resources()
     # generate_redirects()
     # for p in load_posts():
-    #     if p.year <= 2008:
-    #         print("Generating page for %s ..." % p.url)
-    #         sys.stdout.flush()
-    #         generate_single_post(p.url)
-    # generate_month(2009, 2)
+    #     if p.year <= 2006:
+    #         apply_(generate_single_post, (p.url,))
     # generate_single_post("https://thearchdruidreport.blogspot.com/2009/02/toward-ecosophy.html")
     # generate_single_post("https://thearchdruidreport.blogspot.com/2013/01/into-unknown-country.html")
     # generate_single_post("https://thearchdruidreport.blogspot.com/2016/01/donald-trump-and-politics-of-resentment.html")
     # generate_single_post("https://thearchdruidreport.blogspot.com/2009/12/immodest-proposals.html")
     # generate_single_post("https://thearchdruidreport.blogspot.com/2006/05/deer-in-headlights.html")
     # generate_single_post("https://thearchdruidreport.blogspot.com/2009/01/pornography-of-political-fear.html")
-    _generate_everything()
+    #_small_test_run(apply_)
+    _generate_everything(apply_)
+
+
+def _set_lock(lock):
+    global _lock
+    _lock = lock
+    web_cache.set_lock(lock)
+
+
+def main_parallel():
+    _set_lock(multiprocessing.Lock())
+    with multiprocessing.Pool(
+            multiprocessing.cpu_count(),
+            initializer=_set_lock, initargs=(_lock,)) as pool:
+        tasks = []
+        main(lambda func, args: tasks.append(pool.apply_async(func, args)))
+        for t in tasks:
+            t.get()
+
+
+def main_single():
+    _set_lock(threading.Lock())
+    main(lambda func, args: func(*args))
 
 
 if __name__ == "__main__":
-    main()
+    #main_single()
+    main_parallel()
