@@ -293,6 +293,35 @@ def _gen_sidebar(page_url, url_to_root):
     return ret
 
 
+# parent is the #comments-block <dl> tag that contains, for each comment,
+# three tags:
+#   <dt class="comment-author" ... />
+#   <dd class="comment-body" ... />
+#   <dd class="comment-footer" ... />
+# It also contains one <!-- --> comment for each original HTML page of comments.
+def _compress_comments_html(parent):
+    _replace_delay_load(parent)
+    for e in parent.find_all("a", class_="avatar-hovercard"):
+        # Clean useless stuff off the avatar anchor.
+        assert e.attrs["id"].startswith("av-")
+        assert e.attrs["onclick"] == ""
+        del e.attrs["onclick"]
+        del e.attrs["id"]
+        # Optimize the avatar image.
+        i = e.contents[0]
+        assert i.name == "img"
+        assert i.attrs["alt"] == ""
+        del i.attrs["alt"]
+    for e in parent.find_all("dd", class_="comment-body"):
+        assert e.attrs["id"].startswith("Blog1_cmt-")
+        del e.attrs["id"]
+    for e in parent.select("span.comment-timestamp > a"):
+        assert e.attrs["title"] == "comment permalink"
+        m = re.match(r".*(#c\d+)$", str(e.attrs["href"]))
+        assert m
+        e.attrs["href"] = m.group(1)
+
+
 def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
     doc = _page(page_url)
     date_outer = _soup("""
@@ -343,10 +372,11 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
                     </div>
                 </div>""" % {"comments" : _count_string(total_comments, "comment")},
             "div")
-        comments_div_li = comments_div.select("#comments-block")[0]
+        comments_div_dl = comments_div.select("#comments-block")[0]
         for e in comment_elements:
-            comments_div_li.append(e)
+            comments_div_dl.append(e)
         date_outer.select(".comments")[0].replace_with(comments_div)
+        _compress_comments_html(comments_div_dl)
     else:
         date_outer.select(".comments")[0].decompose()
 
@@ -425,7 +455,7 @@ def _intern_image(url):
     extra_cnt = 1
     extra_txt = ""
     while True:
-        path = "images/" + name + extra_txt + extension
+        path = "img/" + name + extra_txt + extension
         path_disk = OUTPUT_DIRECTORY + "/" + path
         if os.path.exists(path_disk):
             if util.get_file_data(path_disk) == img_bytes:
@@ -515,6 +545,10 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
 
         # Link to commenter's blogger profile (leave them in, I guess)
         if re.match(r"^https?://(?:www|draft)\.blogger\.com/profile/\d+$", href, re.IGNORECASE):
+            continue
+
+        # Optimized comment permalink
+        if re.match(r"#c\d+$", href):
             continue
 
         # Anything else?
