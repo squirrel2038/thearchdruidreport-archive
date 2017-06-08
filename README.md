@@ -59,5 +59,28 @@ pip3 install requests
 
 I usually run the program on Linux, but I briefly tested it on Windows, too,
 using a native/non-Cygwin Python 3.  The archiver is careful to use only
-portable filenames (e.g. short, lowercase, no special characters, no
-trailing/following periods).
+portable filenames (e.g. short, lowercase, a limited subset of ASCII
+characters, no trailing/following periods).
+
+### Running the script
+
+Unix (Linux, macOS, BashOnWindows, or Cygwin):
+
+ * Make sure `python3`, `zip`, and `7z` are in your PATH.  Install the PIP
+   packages.
+
+ * Run `make-archive.sh`:
+
+   ```
+   cd archive-archdruid-report
+   ./make-archive.sh
+   ```
+
+Windows:
+
+ * Install Python 3, and the PIP packages above, then run:
+
+   ```
+   cd archive-archdruid-report
+   C:\<path-to-python3>\python.exe generate_pages.py
+   ```
