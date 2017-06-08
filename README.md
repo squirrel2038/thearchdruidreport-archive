@@ -36,7 +36,7 @@ substituting just enough ad hoc JavaScript to operate the blog archive tree
 widget.  (Rather than use AJAX calls for the widget, though, the static site
 uses a `resources/posts.js` file listing every post.)
 
-The program keeps a separate "web_archive" directory recording each HTTP
+The program keeps a separate "web_cache" directory recording each HTTP
 request used during the archival process, which allows the program to be rerun
 without hammering Blogger's servers and allows it to be rerun when the site
 goes down.
@@ -45,7 +45,7 @@ This program currently archives only the desktop version of the site, and only
 the "Blogger Rounders 4"-themed pages (i.e. the pages with the light green
 background).  It doesn't archive the mobile pages or the white-backgrounded
 comments pages (e.g. https://www.blogger.com/comment.g?blogID=27481991&postID=5178643773481630823).
-I might try to add some of these pages to "web_archive" before the site goes
+I might try to add some of these pages to "web_cache" before the site goes
 away.
 
 ### Dependencies
