@@ -142,14 +142,17 @@ def _gen_blog_archive(url_to_root, cur_year, cur_month):
                     <li class="archivedate %(class)s" id="arc_%(id)s">
                         <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
                             <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
-                        %(year)04d</a> (%(count)d)</li>
+                        </a>
+                        <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(last_month)02d/index.html">%(year)04d</a> (%(count)d)</li>
                 </ul>
                 """ % {
                     "class": ["collapsed", "expanded"][is_open],
                     "zippyclass": ["", " toggle-open"][is_open],
                     "spantext": ["►", "▼"][is_open],
                     "id": "%04d" % p.year,
+                    "url_to_root": url_to_root,
                     "year": p.year,
+                    "last_month": max([x.month for x in posts if x.year == p.year]),
                     "count": len([x for x in posts if x.year == p.year]),
                 }
             e = _soup(e, "ul")
