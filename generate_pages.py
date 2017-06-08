@@ -686,32 +686,15 @@ def generate_redirects():
 
 
 def _generate_posts_js(resources_path):
+    all_posts = load_posts()
     lines = []
-    lines += ["var blog_archive_posts = {\n"]
-    cur_group = None
-
-    def closegroup():
-        nonlocal cur_group
-        nonlocal lines
-        if cur_group != None:
-            lines += ["  ],\n"]
-        cur_group = None
-
-    def opengroup(name):
-        nonlocal cur_group
-        nonlocal lines
-        if cur_group != name:
-            closegroup()
-            lines += ['  "%s" : [\n' % name]
-            cur_group = name
-
-    for p in load_posts():
-        group = "%04d_%02d" % (p.year, p.month)
-        opengroup(group)
-        lines += ['    [%s, %s],\n' % (json.dumps(html.escape(p.title, False)), json.dumps(p.page))]
-
-    closegroup()
-    lines += ["};\n"]
+    lines.append("var blog_archive_posts = {\n")
+    for year, month in sorted(set([(p.year, p.month) for p in all_posts]))[::-1]:
+        lines.append("  '%04d_%02d' : [\n" % (year, month))
+        for post in [p for p in all_posts if (p.year, p.month) == (year, month)]:
+            lines.append('    [%s, %s],\n' % (json.dumps(html.escape(post.title, False)), json.dumps(post.page)))
+        lines.append("  ],\n")
+    lines.append("};\n")
     util.set_file_text(os.path.join(resources_path, "posts.js"), "".join(lines))
 
 
