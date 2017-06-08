@@ -24,6 +24,10 @@ _page_cache = {}
 
 OUTPUT_DIRECTORY = "the-archdruid-report"
 
+IMAGE_TYPE_NORMAL = "normal"
+IMAGE_TYPE_RESOURCE = "resource"
+IMAGE_TYPE_AVATAR = "avatar"
+
 def _page(url):
     if url not in _page_cache:
         _page_cache[url] = BeautifulSoup(web_cache.get(url), "lxml")
@@ -436,7 +440,7 @@ def _friendly_image_name(url):
     return url
 
 
-def _intern_image(url):
+def _intern_image(url, image_type=IMAGE_TYPE_NORMAL):
     if url == "":
         # This happens with the avatar icon on comment:
         # https://thearchdruidreport.blogspot.com/2015/03/peak-meaninglessness.html?showComment=1425652426980#c1700234895902505359
@@ -448,7 +452,15 @@ def _intern_image(url):
     except web_cache.ResourceNotAvailable:
         return None
 
+    base_dir = "img"
     name = _friendly_image_name(url) + "-" + hashlib.sha256(img_bytes).hexdigest()[:6]
+    if image_type == IMAGE_TYPE_AVATAR:
+        base_dir = "avt"
+        name = hashlib.sha256(img_bytes).hexdigest()[0:6]
+    elif image_type == IMAGE_TYPE_RESOURCE:
+        base_dir = "resources"
+        # Keep the ordinary name.
+
     extension = _image_extension(img_bytes, url)
     if extension is None:
         return None
@@ -456,7 +468,7 @@ def _intern_image(url):
     extra_cnt = 1
     extra_txt = ""
     while True:
-        path = "img/" + name + extra_txt + extension
+        path = base_dir + "/" + name + extra_txt + extension
         path_disk = OUTPUT_DIRECTORY + "/" + path
         if os.path.exists(path_disk):
             if util.get_file_data(path_disk) == img_bytes:
@@ -478,7 +490,8 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
     # Internalize images.
     for x in out.find_all("img"):
         src = x.attrs["src"]
-        path = _intern_image(src)
+        path = _intern_image(src,
+            IMAGE_TYPE_AVATAR if x.parent.attrs.get("class") == ["avatar-hovercard"] else IMAGE_TYPE_NORMAL)
         if path is None:
             #print("WARNING: 404 error on image " + src + ": removing img tag")
             x.decompose()
@@ -722,7 +735,7 @@ def _intern_css_images(css, base_url):
                 url = "https:" + url
             elif url.startswith("/"):
                 url = re.match(r"(https?://[^/]+)/", base_url).group(1) + url
-            path = _intern_image(url)
+            path = _intern_image(url, IMAGE_TYPE_RESOURCE)
             if not path:
                 sys.exit("ERROR: _intern_css_images: %s" % url)
             url = "../" + path
