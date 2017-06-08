@@ -7,5 +7,5 @@ set -e
 
 rm -f web_cache.7z
 rm -f the-archdruid-report.zip
-7z u web_cache.7z web_cache
-zip -r the-archdruid-report.zip the-archdruid-report
+7z a -mx=9 web_cache.7z web_cache
+7z a -mx=9 the-archdruid-report.7z the-archdruid-report
