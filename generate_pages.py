@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import urllib.request
 
@@ -746,10 +747,12 @@ def _intern_css_images(css, base_url):
 
 def _copy_resources():
     # Copy the initial template.
-    util.makedir(OUTPUT_DIRECTORY)
     if os.path.exists(OUTPUT_DIRECTORY + "/resources"):
         shutil.rmtree(OUTPUT_DIRECTORY + "/resources")
-    shutil.copytree("resources", OUTPUT_DIRECTORY + "/resources")
+    if util.mtime("resources/archive_toggle.js") > util.mtime("resources/archive_toggle.min.js"):
+        subprocess.check_call(["node_modules/.bin/minify", "resources/archive_toggle.js"])
+    util.makedir(OUTPUT_DIRECTORY + "/resources")
+    shutil.copyfile("resources/archive_toggle.min.js", OUTPUT_DIRECTORY + "/resources/archive_toggle.js")
 
     # Pull in the main Blogger template's stylesheet.
     url = "https://thearchdruidreport.blogspot.com/2006/05/real-druids.html"

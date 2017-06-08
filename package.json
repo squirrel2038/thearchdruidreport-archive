@@ -1,0 +1,14 @@
+{
+  "name": "archive-archdruid-report",
+  "version": "1.0.0",
+  "description": "This repository contains a Python program that downloads the Archdruid Report blog, currently hosted at https://thearchdruidreport.blogspot.com, and generates a read-only static version of the site.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "minifier": "^0.8.1"
+  }
+}

@@ -1,3 +1,4 @@
+import math
 import os
 
 
@@ -28,3 +29,10 @@ def makedir(path):
     except:
         if not os.path.isdir(path):
             raise
+
+
+def mtime(path):
+    try:
+        return os.stat(path).st_mtime
+    except:
+        return -math.inf

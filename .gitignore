@@ -4,6 +4,7 @@
 /out
 /the-archdruid-report
 /the-archdruid-report.tar.xz
+/node_modules
 __pycache__
 *.pyc
-output.html
+*.min.js

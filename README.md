@@ -57,6 +57,15 @@ pip3 install lxml
 pip3 install requests
 ```
 
+The program also uses node.js to minify a script.  I tested with
+node.js v6.11.0, the LTS release as of this writing.  Ensure that `node` and
+`npm` are in your PATH, then run:
+
+```
+cd archive-archdruid-report
+npm install
+```
+
 I usually run the program on Linux, but I briefly tested it on Windows, too,
 using a native/non-Cygwin Python 3.  The archiver is careful to use only
 portable filenames (e.g. short, lowercase, a limited subset of ASCII
@@ -66,8 +75,8 @@ characters, no trailing/following periods).
 
 Unix (Linux, macOS, BashOnWindows, or Cygwin):
 
- * Make sure `python3`, `zip`, and `7z` are in your PATH.  Install the PIP
-   packages.
+ * Satisfy dependencies above.  (Make sure `python3`, `zip`, `7z`, `node`, and
+  `npm` are in your PATH.  Install the PIP packages and NPM packages.)
 
  * Run `make-archive.sh`:
 
@@ -78,7 +87,7 @@ Unix (Linux, macOS, BashOnWindows, or Cygwin):
 
 Windows:
 
- * Install Python 3, and the PIP packages above, then imitate
+ * Install Python 3, node.js, and the PIP/NPM packages above, then imitate
    `make_archive.sh`.  Something like this ought to work:
 
    ```
