@@ -78,9 +78,12 @@ Unix (Linux, macOS, BashOnWindows, or Cygwin):
 
 Windows:
 
- * Install Python 3, and the PIP packages above, then run:
+ * Install Python 3, and the PIP packages above, then imitate
+   `make_archive.sh`.  Something like this ought to work:
 
    ```
    cd archive-archdruid-report
+   C:\<path-to-python3>\python.exe generate_posts_json.py
    C:\<path-to-python3>\python.exe generate_pages.py
+   C:\<path-to-python3>\python.exe populate_web_cache.py
    ```
