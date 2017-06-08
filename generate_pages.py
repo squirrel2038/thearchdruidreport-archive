@@ -133,67 +133,67 @@ def _month_name(no):
 
 def _gen_blog_archive(url_to_root, cur_year, cur_month):
     ret = _soup('<div id="BlogArchive1_ArchiveList"></div>', "div")
-    posts = load_posts()
+    all_posts = load_posts()
     years = {}
     months = {}
     cur_year = int(cur_year)
     cur_month = int(cur_month)
 
-    for p in posts:
-        if p.year not in years:
-            is_open = p.year == cur_year
-            e = """
-                <ul class="hierarchy">
-                    <li class="archivedate %(class)s" id="arc_%(id)s">
-                        <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
-                            <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
-                        </a>
-                        <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(last_month)02d/index.html">%(year)04d</a> (%(count)d)</li>
-                </ul>
-                """ % {
-                    "class": ["collapsed", "expanded"][is_open],
-                    "zippyclass": ["", " toggle-open"][is_open],
-                    "spantext": ["►", "▼"][is_open],
-                    "id": "%04d" % p.year,
-                    "url_to_root": url_to_root,
-                    "year": p.year,
-                    "last_month": max([x.month for x in posts if x.year == p.year]),
-                    "count": len([x for x in posts if x.year == p.year]),
-                }
-            e = _soup(e, "ul")
-            ret.append(e)
-            years[p.year] = e.li
-
-        if (p.year, p.month) not in months:
-            is_open = (p.year, p.month) == (cur_year, cur_month)
-            e = """
-                <ul class="hierarchy">
-                    <li class="archivedate %(class)s" id="arc_%(id)s">
-                        <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
-                            <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
-                        </a>
-                        <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(month)02d/index.html">%(month_name)s</a> (%(count)d)<ul class="posts"></ul>
-                    </li>
-                </ul>
+    for year in sorted(set([x.year for x in all_posts]))[::-1]:
+        is_open = year == cur_year
+        e = """
+            <ul class="hierarchy">
+                <li class="archivedate %(class)s" id="arc_%(id)s">
+                    <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
+                        <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
+                    </a>
+                    <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(last_month)02d/index.html">%(year)04d</a> (%(count)d)</li>
+            </ul>
             """ % {
                 "class": ["collapsed", "expanded"][is_open],
                 "zippyclass": ["", " toggle-open"][is_open],
                 "spantext": ["►", "▼"][is_open],
-                "id": "%04d_%02d" % (p.year, p.month),
+                "id": "%04d" % year,
                 "url_to_root": url_to_root,
-                "year": p.year,
-                "month": p.month,
-                "month_name": _month_name(p.month),
-                "count": len([x for x in posts if (x.year, x.month) == (p.year, p.month)]),
+                "year": year,
+                "last_month": max([x.month for x in all_posts if x.year == year]),
+                "count": len([x for x in all_posts if x.year == year]),
             }
-            e = _soup(e, "ul")
-            if p.year == cur_year:
-                years[p.year].append(e)
-                months[(p.year, p.month)] = e.select_one(".posts")
+        e = _soup(e, "ul")
+        ret.append(e)
+        years[year] = e.li
 
-        if (p.year, p.month) == (cur_year, cur_month):
-            parent = months[(p.year, p.month)]
-            parent.append(_soup('<li><a href="%s/%s">%s</a></li>' % (url_to_root, p.relurl, html.escape(p.title, False)), "li"))
+    del year
+
+    for month in sorted(set([x.month for x in all_posts if x.year == cur_year]))[::-1]:
+        is_open = month == cur_month
+        e = """
+            <ul class="hierarchy">
+                <li class="archivedate %(class)s" id="arc_%(id)s">
+                    <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
+                        <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
+                    </a>
+                    <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(month)02d/index.html">%(month_name)s</a> (%(count)d)<ul class="posts"></ul>
+                </li>
+            </ul>
+        """ % {
+            "class": ["collapsed", "expanded"][is_open],
+            "zippyclass": ["", " toggle-open"][is_open],
+            "spantext": ["►", "▼"][is_open],
+            "id": "%04d_%02d" % (cur_year, month),
+            "url_to_root": url_to_root,
+            "year": cur_year,
+            "month": month,
+            "month_name": _month_name(month),
+            "count": len([x for x in all_posts if (x.year, x.month) == (cur_year, month)]),
+        }
+        e = _soup(e, "ul")
+        years[cur_year].append(e)
+        months[(cur_year, month)] = e.select_one(".posts")
+
+    for p in [x for x in all_posts if (x.year, x.month) == (cur_year, cur_month)]:
+        parent = months[(p.year, p.month)]
+        parent.append(_soup('<li><a href="%s/%s">%s</a></li>' % (url_to_root, p.relurl, html.escape(p.title, False)), "li"))
 
     return ret
 
