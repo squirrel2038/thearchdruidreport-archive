@@ -1,9 +1,9 @@
 /plain_web_cache
 /web_cache
-/web_cache.7z
+/web_cache.tar.xz
 /out
 /the-archdruid-report
-/the-archdruid-report.zip
+/the-archdruid-report.tar.xz
 __pycache__
 *.pyc
 output.html
