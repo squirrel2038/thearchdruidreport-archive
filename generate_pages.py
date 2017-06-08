@@ -799,6 +799,22 @@ def _generate_everything():
         generate_single_post(p.url)
 
 
+def _small_test_run():
+    if os.path.exists(OUTPUT_DIRECTORY):
+        shutil.rmtree(OUTPUT_DIRECTORY)
+    _copy_resources()
+    generate_redirects()
+    for year in [2012, 2013]:
+        for month in range(1, 13):
+            print("Generating month %04d/%02d ..." % (year, month))
+            generate_month(year, month)
+    for p in load_posts():
+        if 2012 <= p.year <= 2013:
+            print("Generating page for %s ..." % p.url)
+            sys.stdout.flush()
+            generate_single_post(p.url)
+
+
 def main():
     #_copy_resources()
     # generate_redirects()
