@@ -1,0 +1,26 @@
+Four of the images that appear on the sidebar (book promos) also appear in a
+blog post.  The images are *almost* identical, so with a bit of processing, we
+can compress the archive.
+
+afterprogress-991149.jpg: 15423, (200,300): promo(200,300)
+afterprogress-223bfe.jpg: 15386, (200,300): 2015/03/the-view-from-outside_18.html: link source and target, nosize
+
+collapsecover1f-506a6c.jpg: 145865, (1067,1600): promo(214,321)
+collapsecover1f-751abb.jpg: 150424, (1066,1600): 2015/03/peak-meaninglessness.html: link target (nosize), link source (212,320)
+
+kingsport-09d03a.jpg: 140575, (750,1110): promo(214,316)
+kingsport-dd5973.jpg: 28878,  (216,320):  2016/11/reflections-on-democracy-in-crisis.html: link source (216,320)
+kingsport-e6398f.jpg: 994944, (750,1110): 2016/11/reflections-on-democracy-in-crisis.html: link target (nosize)    [BETTER QUALITY]
+
+star-s-reach-cover2flat-256eb7.jpg: 287134, (1067x1600): promo(214,321)
+star-s-reach-cover2flat-fe8f5e.jpg: 336874, (1066x1600): 2014/04/stars-reach-novel-of-deindustrial-future.html: link target (nosize), link source (213,320)
+
+None of the other book promo images appear anywhere other than the promo.  The
+promo img width must be at most 214, but the other images can be resized
+without harming the page layout.
+
+---
+
+Find the duplicates like so:
+
+find web_cache -name '*.url' -print0 |  xargs -0 grep -ih 'collapsecover.*jpg'

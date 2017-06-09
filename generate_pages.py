@@ -488,6 +488,42 @@ def _intern_image(url, image_type=IMAGE_TYPE_NORMAL):
     return path
 
 
+def _promo_image_replacement(src):
+    if src.startswith("//"):
+        canon_src = "https:" + src
+    elif src.startswith("http://"):
+        canon_src = "https:" + src[5:]
+    else:
+        canon_src = src
+
+    STARS_REACH = "https://1.bp.blogspot.com/-mW4_Mvv3LlU/U1Mrk_pz4HI/AAAAAAAAAKE/M_5EWDHNSZo/s1600/Star%27s+Reach+Cover2flat.jpg"
+    KINGS_PORT = "https://4.bp.blogspot.com/-GjQHgCY4umk/WCO_UfNAT0I/AAAAAAAAAeU/NI5b7vLS2-M1Ja17ZUCAQqe0yvcFiCKfQCLcB/s1600/Kingsport.jpg"
+    AFTER_PROGRESS = "https://4.bp.blogspot.com/-z8hu7awhJQY/VQoXbmmc9-I/AAAAAAAAAT8/bZ-EgZoTIUc/s1600/AfterProgress.jpg"
+    COLLAPSE_NOW = "https://2.bp.blogspot.com/-TqXo8j23qcI/VPfHwjTOx_I/AAAAAAAAATc/gIbiS20Yehw/s1600/collapsecover1f.jpg"
+
+    REPLACEMENTS = {
+        "https://1.bp.blogspot.com/-1Im1QVW0DPM/U1MknGgHGMI/AAAAAAAAAJ4/2AySXZj6XlY/s1600/Star%2527s%2BReach%2BCover2flat.jpg": STARS_REACH,
+        "https://1.bp.blogspot.com/-mW4_Mvv3LlU/U1Mrk_pz4HI/AAAAAAAAAKE/M_5EWDHNSZo/s1600/Star%27s+Reach+Cover2flat.jpg": STARS_REACH,
+        "https://1.bp.blogspot.com/-mW4_Mvv3LlU/U1Mrk_pz4HI/AAAAAAAAAKE/M_5EWDHNSZo/s1600/Star's+Reach+Cover2flat.jpg": STARS_REACH,
+
+        "https://4.bp.blogspot.com/-GjQHgCY4umk/WCO_UfNAT0I/AAAAAAAAAeU/NI5b7vLS2-M1Ja17ZUCAQqe0yvcFiCKfQCLcB/s320/Kingsport.jpg": KINGS_PORT,
+        "https://4.bp.blogspot.com/-GjQHgCY4umk/WCO_UfNAT0I/AAAAAAAAAeU/NI5b7vLS2-M1Ja17ZUCAQqe0yvcFiCKfQCLcB/s1600/Kingsport.jpg": KINGS_PORT,
+        "https://4.bp.blogspot.com/-L5k7A05872s/WCFOKJS8LRI/AAAAAAAAAd4/fA8kTYW9-NAvLc3azbLJtx0iLYS01SzkACK4B/s1600/Kingsport.jpg": KINGS_PORT,
+
+        "https://2.bp.blogspot.com/-LypqmN1FIHs/VD87IK_s9HI/AAAAAAAAAO4/RlhN6nn2gdI/s1600/AfterProgress.jpg": AFTER_PROGRESS,
+        "https://4.bp.blogspot.com/-z8hu7awhJQY/VQoXbmmc9-I/AAAAAAAAAT8/bZ-EgZoTIUc/s1600/AfterProgress.jpg": AFTER_PROGRESS,
+
+        "https://2.bp.blogspot.com/-TqXo8j23qcI/VPfHwjTOx_I/AAAAAAAAATc/gIbiS20Yehw/s1600/collapsecover1f.jpg": COLLAPSE_NOW,
+        "https://1.bp.blogspot.com/-wuzocRt9Fqg/VPTEvxMbcSI/AAAAAAAAATQ/SWdThliJ8fc/s1600/collapsecover1f.jpg": COLLAPSE_NOW,
+    }
+
+    if canon_src in REPLACEMENTS:
+        web_cache.get(src) # Keep the original around in the web_cache in case we need it later.
+        return REPLACEMENTS[canon_src]
+
+    return src
+
+
 def _fixup_images_and_hyperlinks(out, url_to_root):
     # Image fixups -- replace delayLoad and //-relative paths.
     _replace_delay_load(out)
@@ -495,6 +531,7 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
     # Internalize images.
     for x in out.find_all("img"):
         src = x.attrs["src"]
+        src = _promo_image_replacement(src)
         path = _intern_image(src,
             IMAGE_TYPE_AVATAR if x.parent.attrs.get("class") == ["avatar-hovercard"] else IMAGE_TYPE_NORMAL)
         if path is None:
