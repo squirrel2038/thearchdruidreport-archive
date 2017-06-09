@@ -286,7 +286,7 @@ def _gen_sidebar(page_url, url_to_root):
         h = int(i.attrs["height"])
         if (w > 214):
             i.attrs["width"] = "214"
-            i.attrs["height"] = str(h * 214 // w)
+            i.attrs["height"] = str(round(h * 214 / w))
 
     # Remove cruft (e.g. admin stuff) from sidebar widgets (e.g. promo images)
     # (We have to separate the classes here, but we didn't have to elsewhere.  I have no idea why.)
