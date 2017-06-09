@@ -8,6 +8,8 @@
 
 from bs4 import BeautifulSoup, Comment
 from copy import copy
+import PIL.Image
+import io
 import hashlib
 import html
 import json
@@ -24,6 +26,7 @@ import web_cache
 import util
 
 _page_cache = {}
+_pil_image_cache = {}
 _lock = None
 
 OUTPUT_DIRECTORY = "the-archdruid-report"
@@ -33,9 +36,16 @@ IMAGE_TYPE_RESOURCE = "resource"
 IMAGE_TYPE_AVATAR = "avatar"
 
 def _page(url):
+    global _page_cache
     if url not in _page_cache:
         _page_cache[url] = BeautifulSoup(web_cache.get(url), "lxml")
     return _page_cache[url]
+
+def _pil_image(url):
+    global _pil_image_cache
+    if url not in _pil_image_cache:
+        _pil_image_cache[url] = PIL.Image.open(io.BytesIO(web_cache.get(url)))
+    return _pil_image_cache[url]
 
 def _soup(text, tag):
     ret = BeautifulSoup(text, "lxml")
@@ -270,6 +280,14 @@ MAIN_TEMPLATE = """<!DOCTYPE html>
 </html>
 """
 
+def _set_promo_img_size(img):
+    w, h = _pil_image(img.attrs["src"]).size
+    if w > 214:
+        h = round(h * 214 / w)
+        w = 214
+    img.attrs["width"] = str(w)
+    img.attrs["height"] = str(h)
+
 
 def _gen_sidebar(page_url, url_to_root):
     # Replace the sidebar with the one from the source document.
@@ -279,14 +297,7 @@ def _gen_sidebar(page_url, url_to_root):
 
     # Fixup the images in the sidebar -- downscale them to 214px wide
     for x in ret.select("div.widget.Image"):
-        i = x.img
-        if "width" not in i.attrs or "height" not in i.attrs:
-            continue
-        w = int(i.attrs["width"])
-        h = int(i.attrs["height"])
-        if (w > 214):
-            i.attrs["width"] = "214"
-            i.attrs["height"] = str(round(h * 214 / w))
+        _set_promo_img_size(x.img)
 
     # Remove cruft (e.g. admin stuff) from sidebar widgets (e.g. promo images)
     # (We have to separate the classes here, but we didn't have to elsewhere.  I have no idea why.)
@@ -488,13 +499,19 @@ def _intern_image(url, image_type=IMAGE_TYPE_NORMAL):
     return path
 
 
-def _promo_image_replacement(src):
+def _promo_image_replacement(img):
+    # Four of the images that appear on the sidebar (book promos) also appear
+    # in a blog post.  The images are *almost* identical, so with a bit of
+    # processing, we can compress the archive.  Replace the promo and post
+    # images with the image linked to from the post.
+    #
+    # See notes/duplicate-book-promo-images.txt
+
+    src = img.attrs["src"]
     if src.startswith("//"):
-        canon_src = "https:" + src
+        src = "https:" + src
     elif src.startswith("http://"):
-        canon_src = "https:" + src[5:]
-    else:
-        canon_src = src
+        src = "https:" + src[5:]
 
     STARS_REACH = "https://1.bp.blogspot.com/-mW4_Mvv3LlU/U1Mrk_pz4HI/AAAAAAAAAKE/M_5EWDHNSZo/s1600/Star%27s+Reach+Cover2flat.jpg"
     KINGS_PORT = "https://4.bp.blogspot.com/-GjQHgCY4umk/WCO_UfNAT0I/AAAAAAAAAeU/NI5b7vLS2-M1Ja17ZUCAQqe0yvcFiCKfQCLcB/s1600/Kingsport.jpg"
@@ -517,9 +534,14 @@ def _promo_image_replacement(src):
         "https://1.bp.blogspot.com/-wuzocRt9Fqg/VPTEvxMbcSI/AAAAAAAAATQ/SWdThliJ8fc/s1600/collapsecover1f.jpg": COLLAPSE_NOW,
     }
 
-    if canon_src in REPLACEMENTS:
-        web_cache.get(src) # Keep the original around in the web_cache in case we need it later.
-        return REPLACEMENTS[canon_src]
+    if src in REPLACEMENTS:
+        # Keep the original around in the web_cache in case we need it later.
+        web_cache.get(img.attrs["src"])
+        img.attrs["src"] = REPLACEMENTS[src]
+        # Scale both the post image and the sidebar image down to the same
+        # size, which will help prevent duplication later on in the image
+        # pipeline.
+        _set_promo_img_size(img)
 
     return src
 
@@ -530,8 +552,8 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
 
     # Internalize images.
     for x in out.find_all("img"):
+        _promo_image_replacement(x)
         src = x.attrs["src"]
-        src = _promo_image_replacement(src)
         path = _intern_image(src,
             IMAGE_TYPE_AVATAR if x.parent.attrs.get("class") == ["avatar-hovercard"] else IMAGE_TYPE_NORMAL)
         if path is None:
