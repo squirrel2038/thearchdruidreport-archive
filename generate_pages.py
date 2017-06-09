@@ -14,6 +14,7 @@ import hashlib
 import html
 import json
 import multiprocessing
+import multiprocessing.managers
 import os
 import re
 import shutil
@@ -21,13 +22,16 @@ import subprocess
 import sys
 import threading
 import urllib.request
+import image_compressor
 
 import web_cache
 import util
 
 _page_cache = {}
 _pil_image_cache = {}
-_lock = None
+_intern_image_cache = {}
+_fs_lock = None
+_image_compressor = None
 
 OUTPUT_DIRECTORY = "the-archdruid-report"
 
@@ -414,19 +418,6 @@ def _write_page(doc, path):
     util.set_file_text(path, str(doc))
 
 
-def _image_extension(data, url):
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return ".png"
-    elif data[:3] == b"GIF":
-        return ".gif"
-    elif data[:2] == b"\xff\xd8" and data[-2:] == b"\xff\xd9":
-        return ".jpg"
-    elif data[:4].lower() == b"<svg":
-        return ".svg"
-    else:
-        return None
-
-
 _friendly_image_name_re = re.compile(r"[^a-z0-9]+")
 def _friendly_image_name(url):
     # We get crazy URLs like these:
@@ -455,7 +446,20 @@ def _friendly_image_name(url):
     return url
 
 
-def _intern_image(url, image_type=IMAGE_TYPE_NORMAL):
+def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None):
+    global _intern_image_cache
+
+    memo_key = (url, image_type, html_size)
+    if memo_key in _intern_image_cache:
+        return AsyncImageResultCached(_intern_image_cache[memo_key])
+
+    if html_size is None or html_size == (None, None):
+        html_size = None
+    else:
+        # XXX: If only one dimension is provided, this will fail, and we'll
+        # need to do implement something sensible here.
+        html_size = (int(html_size[0]), int(html_size[1]))
+
     if url == "":
         # This happens with the avatar icon on comment:
         # https://thearchdruidreport.blogspot.com/2015/03/peak-meaninglessness.html?showComment=1425652426980#c1700234895902505359
@@ -467,33 +471,96 @@ def _intern_image(url, image_type=IMAGE_TYPE_NORMAL):
     except web_cache.ResourceNotAvailable:
         return None
 
-    base_dir = "img"
-    name = _friendly_image_name(url) + "-" + hashlib.sha256(img_bytes).hexdigest()[:6]
-    if image_type == IMAGE_TYPE_AVATAR:
-        base_dir = "avt"
-        name = hashlib.sha256(img_bytes).hexdigest()[0:6]
-    elif image_type == IMAGE_TYPE_RESOURCE:
-        base_dir = "resources"
-        # Keep the ordinary name.
-
-    extension = _image_extension(img_bytes, url)
+    extension = util.image_extension(img_bytes)
     if extension is None:
         return None
 
-    with _lock:
+    name = hashlib.sha256(img_bytes).hexdigest()[:6]
+    if image_type != IMAGE_TYPE_AVATAR:
+        name = _friendly_image_name(url) + "-" + name
+    base_dir = "img"
+    if image_type == IMAGE_TYPE_AVATAR:
+        base_dir = "avt"
+
+    if extension == ".svg":
+        # Short-circuit the image compressor for SVG images.
+        return AsyncImageResultCached(_write_image_file(base_dir, name, extension, img_bytes))
+
+    resample_size = None
+    img = _pil_image(url)
+    if html_size is None:
+        html_size = img.size
+    else:
+        # Allow twice as many pixels as needed; the extra pixels keep the image
+        # sharp on high-DPI (e.g. Retina) displays.
+        if img.size[0] >= html_size[0] * 2 or img.size[1] >= html_size[1] * 2:
+            # Resample the image.
+            w_ratio = min(img.size[0], html_size[0] * 2) / img.size[0]
+            h_ratio = min(img.size[1], html_size[1] * 2) / img.size[1]
+            ratio = min(w_ratio, h_ratio)
+            resample_size = (round(img.size[0] * ratio),
+                             round(img.size[1] * ratio))
+
+    guetzli_quality = 0
+    if img.mode not in ["L", "LA", "RGBA"]:
+        guetzli_quality = 95
+    job = (name, url, resample_size, guetzli_quality)
+    is_job_cached = _image_compressor.has_cached(job)
+    _image_compressor.start_compress_async(job)
+
+    ret = AsyncImageResult(base_dir, name, job, memo_key)
+    if is_job_cached:
+        # Call this prematurely to force the final path into our
+        # process' cache.  Performance hack.
+        ret.get()
+    return ret
+
+
+class AsyncImageResult:
+    def __init__(self, base_dir, name, job, memo_key):
+        self._base_dir = base_dir
+        self._name = name
+        self._job = job
+        self._memo_key = memo_key
+
+    def get(self):
+        global _intern_image_cache
+        cache_path, name_extra = _image_compressor.compress(self._job)
+        img_bytes = util.get_file_data(cache_path)
+        html_path = _write_image_file(self._base_dir, self._name + name_extra,
+                                      os.path.splitext(cache_path)[1], img_bytes)
+        _intern_image_cache[self._memo_key] = html_path
+        return html_path
+
+
+class AsyncImageResultCached:
+    def __init__(self, result):
+        self._result = result
+
+    def get(self):
+        return self._result
+
+
+def _intern_image(url, *args, **kwargs):
+    ret = _intern_image_async(url, *args, **kwargs)
+    return None if ret is None else ret.get()
+
+
+def _write_image_file(base_dir, name, extension, data):
+    with _fs_lock:
         extra_cnt = 1
         extra_txt = ""
         while True:
             path = base_dir + "/" + name + extra_txt + extension
             path_disk = OUTPUT_DIRECTORY + "/" + path
             if os.path.exists(path_disk):
-                if util.get_file_data(path_disk) == img_bytes:
+                if util.get_file_data(path_disk) == data:
                     break
                 else:
                     extra_cnt += 1
                     extra_txt = "-%d" % extra_cnt
             else:
-                util.set_file_data(path_disk, img_bytes)
+                util.set_file_data(path_disk, data)
                 break
 
     return path
@@ -550,17 +617,20 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
     # Image fixups -- replace delayLoad and //-relative paths.
     _replace_delay_load(out)
 
+    async_image_conversion = []
+
     # Internalize images.
     for x in out.find_all("img"):
         _promo_image_replacement(x)
         src = x.attrs["src"]
-        path = _intern_image(src,
-            IMAGE_TYPE_AVATAR if x.parent.attrs.get("class") == ["avatar-hovercard"] else IMAGE_TYPE_NORMAL)
+        path = _intern_image_async(src,
+            IMAGE_TYPE_AVATAR if x.parent.attrs.get("class") == ["avatar-hovercard"] else IMAGE_TYPE_NORMAL,
+            (x.attrs.get("width"), x.attrs.get("height")))
         if path is None:
             #print("WARNING: 404 error on image " + src + ": removing img tag")
             x.decompose()
             continue
-        x.attrs["src"] = url_to_root + "/" + path
+        async_image_conversion.append((x, "src", path))
 
         # If we have an image hyperlink to what appears to be an image itself,
         # hosted on Blogspot, then it's likely an expandable image in the main
@@ -568,10 +638,12 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
         if x.parent.name == "a" and "href" in x.parent.attrs:
             href = x.parent.attrs["href"]
             if re.match(r"(https?:)?//[1234]\.bp\.blogspot\.com/.*\.(png|gif|jpg|jpeg)$", href, re.IGNORECASE):
-                img = _intern_image(href)
-                if img is not None:
-                    x.parent.attrs["href"] = url_to_root + "/" + img
-                    continue
+                path = _intern_image_async(href)
+                if path is not None:
+                    async_image_conversion.append((x.parent, "href", path))
+
+    for (element, attr, path) in async_image_conversion:
+        element.attrs[attr] = url_to_root + "/" + path.get()
 
     # Fixup hyperlinks to https://thearchdruidreport.blogspot.com/
     for x in out.find_all("a"):
@@ -866,11 +938,11 @@ def _generate_everything(apply_):
 
 def _small_test_run(apply_):
     _gen_resources()
-    for year in [2012, 2013]:
+    for year in [2015, 2016]:
         for month in range(1, 13):
             apply_(generate_month, (year, month))
     for p in load_posts():
-        if 2012 <= p.year <= 2013:
+        if 2015 <= p.year <= 2016:
             apply_(generate_single_post, (p.url,))
 
 
@@ -880,27 +952,50 @@ def main(apply_):
     # for p in load_posts():
     #     if p.year <= 2006:
     #         apply_(generate_single_post, (p.url,))
-    # generate_single_post("https://thearchdruidreport.blogspot.com/2009/02/toward-ecosophy.html")
-    # generate_single_post("https://thearchdruidreport.blogspot.com/2013/01/into-unknown-country.html")
-    # generate_single_post("https://thearchdruidreport.blogspot.com/2016/01/donald-trump-and-politics-of-resentment.html")
-    # generate_single_post("https://thearchdruidreport.blogspot.com/2009/12/immodest-proposals.html")
-    # generate_single_post("https://thearchdruidreport.blogspot.com/2006/05/deer-in-headlights.html")
+    #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2009/02/toward-ecosophy.html",))
+    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2013/01/into-unknown-country.html",))
+    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2016/01/donald-trump-and-politics-of-resentment.html",))
+    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2009/12/immodest-proposals.html",))
+    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2006/05/deer-in-headlights.html",))
     # generate_single_post("https://thearchdruidreport.blogspot.com/2009/01/pornography-of-political-fear.html")
     #_small_test_run(apply_)
     _generate_everything(apply_)
 
 
-def _set_lock(lock):
-    global _lock
-    _lock = lock
-    web_cache.set_lock(lock)
+def _set_fs_lock(lock):
+    global _fs_lock
+    _fs_lock = lock
+    web_cache.set_fs_lock(lock)
+    image_compressor.set_fs_lock(lock)
+
+
+def _multiproc_init(lock, compressor):
+    global _image_compressor
+    _image_compressor = compressor
+    _set_fs_lock(lock)
+
+
+class _ImageCompressorManager(multiprocessing.managers.BaseManager):
+    pass
+
+_ImageCompressorManager.register("ImageCompressor", image_compressor.ImageCompressor, exposed=[
+    "start_compress_async",
+    "compress",
+    "has_cached",
+])
 
 
 def main_parallel():
-    _set_lock(multiprocessing.Lock())
+    global _image_compressor
+    lock = multiprocessing.Lock()
+    _set_fs_lock(lock)
+    compressor_mgr = _ImageCompressorManager()
+    compressor_mgr.start()
+    _image_compressor = compressor_mgr.ImageCompressor()
+
     with multiprocessing.Pool(
-            multiprocessing.cpu_count(),
-            initializer=_set_lock, initargs=(_lock,)) as pool:
+            processes=multiprocessing.cpu_count(),
+            initializer=_multiproc_init, initargs=(_fs_lock, _image_compressor)) as pool:
         tasks = []
         main(lambda func, args: tasks.append(pool.apply_async(func, args)))
         for t in tasks:
@@ -908,7 +1003,11 @@ def main_parallel():
 
 
 def main_single():
-    _set_lock(threading.Lock())
+    global _image_compressor
+    lock = threading.Lock()
+    _set_fs_lock(lock)
+    _image_compressor = image_compressor.SyncImageCompressor()
+
     main(lambda func, args: func(*args))
 
 

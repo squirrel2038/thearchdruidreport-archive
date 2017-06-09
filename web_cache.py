@@ -10,32 +10,21 @@ import threading
 
 import util
 
-web_cache_DIR = os.path.dirname(__file__) + "/web_cache"
+WEB_CACHE_DIR = os.path.dirname(__file__) + "/web_cache"
 POST_REQUEST_SLEEP_TIME = 2.0
-_lock = threading.Lock() # Replace this default to do multiprocessing.
+_lock = None
 
 
-def set_lock(lock):
+def set_fs_lock(lock):
     global _lock
     _lock = lock
-
-
-# Use \\?\C:\path\file syntax to: (a) avoid path length limits and (b) avoid device files.
-def _fixup_win32_path(path):
-    path = os.path.abspath(path)
-    if re.match(r"[a-zA-Z]:\\", path[0:3]):
-        return "\\\\?\\" + path[0].upper() + path[1:]
-    elif re.match(r"\\\\[^\\]+\\"):
-        return "\\\\UNC\\" + path[2:]
-    else:
-        raise RuntimeError("ERROR: unrecognized Windows path: " + path)
 
 
 _scheme_re = re.compile(r"^(?:file|http|https):")
 _bad_url_re = re.compile(r"[^a-z0-9\~\-\`\!\@\#\$\%\&\(\)\_\+\=\{\}\[\]\;\'\,\.]+")
 def _canonbase(url):
     # Record the hash for the original unsanitized URL.
-    hashstr = hashlib.sha256(url.encode("utf8")).hexdigest()[0:40]
+    hashstr = urlhash(url)
 
     # Sanitization the URL to a filename that still preserves some of the URL's structure.
     url = url.lower()
@@ -55,10 +44,13 @@ def _canonbase(url):
     url = url[0:500]
     url = ".".join(url.replace(".", " ").split())
 
-    ret = os.path.join(web_cache_DIR, url, hashstr)
-    if sys.platform == "win32":
-        ret = _fixup_win32_path(ret)
+    ret = os.path.join(WEB_CACHE_DIR, url, hashstr)
+    ret = util.abspath(ret)
     return ret
+
+
+def urlhash(url):
+    return hashlib.sha256(_canonurl(url).encode("utf8")).hexdigest()[0:40]
 
 
 def _canonurl(url):

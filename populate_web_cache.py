@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import json
 import re
+import threading
 import time
 
 import web_cache
 import generate_pages
+
+web_cache.set_fs_lock(threading.Lock())
 
 for p in generate_pages.load_posts():
     if not web_cache.has(p.url):
