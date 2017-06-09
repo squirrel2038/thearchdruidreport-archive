@@ -6,12 +6,13 @@ import os
 import requests
 import sys
 import time
+import threading
 
 import util
 
 web_cache_DIR = os.path.dirname(__file__) + "/web_cache"
 POST_REQUEST_SLEEP_TIME = 2.0
-_lock = None
+_lock = threading.Lock() # Replace this default to do multiprocessing.
 
 
 def set_lock(lock):
