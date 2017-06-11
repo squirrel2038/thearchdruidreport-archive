@@ -73,9 +73,12 @@ def _compress_image(job, dont_block=False):
             if dont_block:
                 return None
             tmp_path = os.path.join(IMG_CACHE_DIR, "tmp-%d-%d.jpg" % (os.getpid(), threading.get_ident()))
-            subprocess.check_call([
+            output = subprocess.check_output([
                 "guetzli", "--quality", str(guetzli_quality), cur_path, tmp_path
-            ])
+            ], stderr=subprocess.STDOUT)
+            guetzli_output = output.decode().strip()
+            if guetzli_output != "":
+                print("WARNING: guetzli output on file '%s': %s" % (cur_path, guetzli_output))
             os.rename(tmp_path, new_path)
         cur_path = new_path
         del new_path
