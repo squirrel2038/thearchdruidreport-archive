@@ -446,12 +446,12 @@ def _friendly_image_name(url):
     return url
 
 
-def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None):
+def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi=False):
     global _intern_image_cache
 
-    memo_key = (url, image_type, html_size)
+    memo_key = (url, image_type, html_size, hidpi)
     if memo_key in _intern_image_cache:
-        return AsyncImageResultCached(_intern_image_cache[memo_key])
+        return AsyncImageResultCached(*_intern_image_cache[memo_key])
 
     if html_size is None or html_size == (None, None):
         html_size = None
@@ -483,23 +483,30 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None):
         base_dir = "avt"
 
     if extension == ".svg":
+        if hidpi:
+            return None
         # Short-circuit the image compressor for SVG images.
-        return AsyncImageResultCached(_write_image_file(base_dir, name, extension, img_bytes))
+        return AsyncImageResultCached(_write_image_file(base_dir, name, extension, img_bytes), None)
 
+    # If hidpi is true, then abort if there aren't enough pixels to justify
+    # a high-DPI resampling.
     resample_size = None
+    hidpi_ratio = None
     img = _pil_image(url)
     if html_size is None:
+        if hidpi:
+            return None
         html_size = img.size
     else:
-        # Allow twice as many pixels as needed; the extra pixels keep the image
-        # sharp on high-DPI (e.g. Retina) displays.
-        if img.size[0] >= html_size[0] * 2 or img.size[1] >= html_size[1] * 2:
-            # Resample the image.
-            w_ratio = min(img.size[0], html_size[0] * 2) / img.size[0]
-            h_ratio = min(img.size[1], html_size[1] * 2) / img.size[1]
-            ratio = min(w_ratio, h_ratio)
-            resample_size = (round(img.size[0] * ratio),
-                             round(img.size[1] * ratio))
+        if not hidpi:
+            if any(img.size[d] > html_size[d] for d in (0, 1)):
+                resample_size = tuple(min(img.size[d], html_size[d]) for d in (0, 1))
+        else:
+            hidpi_ratio = min(2.0, min(img.size[d] / html_size[d] for d in (0, 1)))
+            if hidpi_ratio >= 1.5:
+                resample_size = tuple(round(html_size[d] * hidpi_ratio) for d in (0, 1))
+            else:
+                return None
 
     guetzli_quality = 0
     if img.mode not in ["L", "LA", "RGBA"]:
@@ -508,7 +515,7 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None):
     is_job_cached = _image_compressor.has_cached(job)
     _image_compressor.start_compress_async(job)
 
-    ret = AsyncImageResult(base_dir, name, job, memo_key)
+    ret = AsyncImageResult(base_dir, name, hidpi_ratio, job, memo_key)
     if is_job_cached:
         # Call this prematurely to force the final path into our
         # process' cache.  Performance hack.
@@ -517,9 +524,10 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None):
 
 
 class AsyncImageResult:
-    def __init__(self, base_dir, name, job, memo_key):
+    def __init__(self, base_dir, name, hidpi_ratio, job, memo_key):
         self._base_dir = base_dir
         self._name = name
+        self._hidpi_ratio = hidpi_ratio
         self._job = job
         self._memo_key = memo_key
 
@@ -529,16 +537,23 @@ class AsyncImageResult:
         img_bytes = util.get_file_data(cache_path)
         html_path = _write_image_file(self._base_dir, self._name + name_extra,
                                       os.path.splitext(cache_path)[1], img_bytes)
-        _intern_image_cache[self._memo_key] = html_path
+        _intern_image_cache[self._memo_key] = (html_path, self._hidpi_ratio)
         return html_path
+
+    def hidpi_ratio(self):
+        return self._hidpi_ratio
 
 
 class AsyncImageResultCached:
-    def __init__(self, result):
+    def __init__(self, result, hidpi_ratio):
         self._result = result
+        self._hidpi_ratio = hidpi_ratio
 
     def get(self):
         return self._result
+
+    def hidpi_ratio(self):
+        return self._hidpi_ratio
 
 
 def _intern_image(url, *args, **kwargs):
@@ -613,6 +628,17 @@ def _promo_image_replacement(img):
     return src
 
 
+# Convert the FP value to a string like N.Nx, suitable for use in the HTML5 img
+# srcset attribute.  Round the FP value to one decimal place.  If the ratio is
+# an integral multiple, like 1.0x or 2.0x, then remove the trailing zero.
+def _format_srcset_ratio(ratio):
+    ret = "%1.1f" % ratio
+    if ret.endswith(".0"):
+        ret = ret[:-2]
+    ret += "x"
+    return ret
+
+
 def _fixup_images_and_hyperlinks(out, url_to_root):
     # Image fixups -- replace delayLoad and //-relative paths.
     _replace_delay_load(out)
@@ -623,14 +649,27 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
     for x in out.find_all("img"):
         _promo_image_replacement(x)
         src = x.attrs["src"]
-        path = _intern_image_async(src,
-            IMAGE_TYPE_AVATAR if x.parent.attrs.get("class") == ["avatar-hovercard"] else IMAGE_TYPE_NORMAL,
-            (x.attrs.get("width"), x.attrs.get("height")))
-        if path is None:
+        is_avatar = x.parent.attrs.get("class") == ["avatar-hovercard"]
+        image_type = [IMAGE_TYPE_NORMAL, IMAGE_TYPE_AVATAR][is_avatar]
+        html_size = (x.attrs.get("width"), x.attrs.get("height"))
+
+        normal_path = None
+        hidpi_path = _intern_image_async(src, image_type, html_size, True)
+        if is_avatar and hidpi_path is not None:
+            # If this was an avatar, then we just use the hidpi image without a
+            # srcset.  Avatars are small anyway, and we care about the size of
+            # the avatar img-src in the comments' HTML.
+            normal_path = hidpi_path
+            hidpi_path = None
+        else:
+            normal_path = _intern_image_async(src, image_type, html_size, False)
+
+        if normal_path is None:
+            assert hidpi_path is None
             #print("WARNING: 404 error on image " + src + ": removing img tag")
             x.decompose()
             continue
-        async_image_conversion.append((x, "src", path))
+        async_image_conversion.append((x, "src", normal_path, hidpi_path))
 
         # If we have an image hyperlink to what appears to be an image itself,
         # hosted on Blogspot, then it's likely an expandable image in the main
@@ -640,10 +679,18 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
             if re.match(r"(https?:)?//[1234]\.bp\.blogspot\.com/.*\.(png|gif|jpg|jpeg)$", href, re.IGNORECASE):
                 path = _intern_image_async(href)
                 if path is not None:
-                    async_image_conversion.append((x.parent, "href", path))
+                    async_image_conversion.append((x.parent, "href", path, None))
 
-    for (element, attr, path) in async_image_conversion:
-        element.attrs[attr] = url_to_root + "/" + path.get()
+    for (element, attr, normal_path, hidpi_path) in async_image_conversion:
+        if hidpi_path is not None:
+            assert normal_path is not None
+            assert element.name == "img"
+            assert attr == "src"
+            element.attrs["src"] = url_to_root + "/" + normal_path.get()
+            element.attrs["srcset"] = (url_to_root + "/" + hidpi_path.get() + " " +
+                _format_srcset_ratio(hidpi_path.hidpi_ratio()))
+        else:
+            element.attrs[attr] = url_to_root + "/" + normal_path.get()
 
     # Fixup hyperlinks to https://thearchdruidreport.blogspot.com/
     for x in out.find_all("a"):
