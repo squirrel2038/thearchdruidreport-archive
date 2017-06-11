@@ -29,7 +29,7 @@ def _exists_locked(path):
         return os.path.exists(path)
 
 
-def _compress_image(job, dont_block=False):
+def _compress_image(job, dont_block):
     name, url, resample_size, guetzli_quality = job
 
     # guetzli_quality should evaluate to False to disable guetzli.  If the
@@ -79,16 +79,38 @@ def _compress_image(job, dont_block=False):
             guetzli_output = output.decode().strip()
             if guetzli_output != "":
                 print("WARNING: guetzli output on file '%s': %s" % (cur_path, guetzli_output))
-            os.rename(tmp_path, new_path)
+            with _fs_lock:
+                os.rename(tmp_path, new_path)
         cur_path = new_path
         del new_path
 
     new_bytes = util.get_file_data(cur_path)
 
-    if len(orig_bytes) <= len(new_bytes):
-        return (orig_path, "")
+    return (cur_path, name_extra, len(new_bytes))
+
+
+def _compress_image_super(job, dont_block=False):
+    name, url, resample_size, guetzli_quality = job
+
+    mainjob0 = _compress_image((name, url, None, 0), dont_block)
+    mainjob1 = _compress_image(job, dont_block)
+    if mainjob0 is None or mainjob1 is None:
+        return None
+
+    if mainjob0[2] <= mainjob1[2] and resample_size and guetzli_quality:
+        # If the original file was smaller, we'll prefer it to the
+        # resampled-and-compressed file.  First, though, try simply compressing
+        # the unmodified original.
+        mainjob1 = _compress_image((name, url, None, guetzli_quality), dont_block)
+        if mainjob1 is None:
+            return None
+
+    if mainjob0[2] <= mainjob1[2]:
+        ret = mainjob0
     else:
-        return (cur_path, name_extra)
+        ret = mainjob1
+
+    return (ret[0], ret[1])
 
 
 # This class is responsible for coordinating the image compressor tasks.
@@ -108,13 +130,13 @@ class ImageCompressor:
 
     def has_cached(self, job):
         # Performance hack
-        return _compress_image(job, dont_block=True) is not None
+        return _compress_image_super(job, dont_block=True) is not None
 
     # Returns a multiprocessing.pool.AsyncResult
     def _start_compress_async(self, job):
         with self._jobs_lock:
             if job not in self._jobs:
-                self._jobs[job] = self._pool.apply_async(_compress_image, (job,))
+                self._jobs[job] = self._pool.apply_async(_compress_image_super, (job,))
             return self._jobs[job]
 
 
@@ -131,9 +153,9 @@ class SyncImageCompressor:
 
     def has_cached(self, job):
         # Performance hack
-        return _compress_image(job, dont_block=True) is not None
+        return _compress_image_super(job, dont_block=True) is not None
 
     def _compress(self, job):
         if job not in self._jobs:
-            self._jobs[job] = _compress_image(job)
+            self._jobs[job] = _compress_image_super(job)
         return self._jobs[job]
