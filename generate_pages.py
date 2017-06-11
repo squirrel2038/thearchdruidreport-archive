@@ -508,7 +508,9 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi
             else:
                 return None
 
-    guetzli_quality = 92 if hidpi else 95
+    guetzli_quality = 95
+    if hidpi and image_type != IMAGE_TYPE_AVATAR:
+        guetzli_quality = 92
     if img.mode in ["L", "LA", "RGBA"] or "transparency" in img.info:
         guetzli_quality = 0
     job = (name, url, resample_size, guetzli_quality)
