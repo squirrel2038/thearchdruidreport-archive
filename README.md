@@ -66,6 +66,11 @@ cd archive-archdruid-report
 npm install
 ```
 
+The archiver uses guetzli to compress images.  Initially, it used
+version f3e83a7058 of https://github.com/google/guetzli (about 3 months newer
+than 1.0.1, which is the latest release as of this writing, 2017-06-11).  Make
+sure `guetzli` is in your PATH.
+
 I usually run the program on Linux, but I briefly tested it on Windows, too,
 using a native/non-Cygwin Python 3.  The archiver is careful to use only
 portable filenames (e.g. short, lowercase, a limited subset of ASCII
@@ -75,8 +80,8 @@ characters, no trailing/following periods).
 
 Unix (Linux, macOS, BashOnWindows, or Cygwin):
 
- * Satisfy dependencies above.  (Make sure `python3`, `zip`, `7z`, `node`, and
-  `npm` are in your PATH.  Install the PIP packages and NPM packages.)
+ * Satisfy dependencies above.  (Make sure `python3`, `node`, `npm`, and
+   `guetzli` are in your PATH.  Install the PIP packages and NPMpackages.)
 
  * Run `make-archive.sh`:
 
