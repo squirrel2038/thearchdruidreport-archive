@@ -34,7 +34,7 @@ var arc_tog = (function() {
     function arc_tog(id) {
         var e = document.getElementById("arc_" + id);
         var es = e.getElementsByTagName("span")[0];
-        if (e.classList.contains("expanded")) {
+        if (e.className.match(/\bexpanded\b/)) {
             e.className = "archivedate collapsed";
             es.className = "zippy";
             es.innerHTML = "►&nbsp;";

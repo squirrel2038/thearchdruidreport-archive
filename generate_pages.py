@@ -895,13 +895,17 @@ def generate_redirects():
 def _generate_posts_js(resources_path):
     all_posts = load_posts()
     lines = []
-    lines.append("var blog_archive_posts = {\n")
-    for year, month in sorted(set([(p.year, p.month) for p in all_posts]))[::-1]:
-        lines.append("'%04d_%02d':[\n" % (year, month))
-        for post in [p for p in all_posts if (p.year, p.month) == (year, month)]:
-            lines.append('[%s,%s],\n' % (json.dumps(html.escape(post.title, False)), json.dumps(post.page)))
-        lines.append("],\n")
-    lines.append("};\n")
+    lines.append("var blog_archive_posts = {")
+    for i, (year, month) in enumerate(sorted(set([(p.year, p.month) for p in all_posts]))[::-1]):
+        if i != 0:
+            lines.append(",")
+        lines.append("\n'%04d_%02d':[" % (year, month))
+        for j, post in enumerate([p for p in all_posts if (p.year, p.month) == (year, month)]):
+            if j != 0:
+                lines.append(",")
+            lines.append('\n[%s,%s]' % (json.dumps(html.escape(post.title, False)), json.dumps(post.page)))
+        lines.append("\n]")
+    lines.append("\n};\n")
     util.set_file_text(os.path.join(resources_path, "posts.js"), "".join(lines))
 
 
