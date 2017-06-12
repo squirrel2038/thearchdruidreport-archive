@@ -62,6 +62,25 @@ def _get_comments_count(url):
     m = re.match(r"^(\d+) comments?:$", main_doc.select_one(".comments").h4.string)
     return int(m.group(1))
 
+# Properties
+#  - id: str -- the comment's "c......." value
+#  - profile_url: str -- the comment's Blogger profile
+#  - avatar_url: str -- the URL of the avatar/icon for the comment
+#  - avatar_size: (int, int) -- size in pixels
+#  - is_stock_avatar: bool -- whether the avatar-stock class is set (indicates no border)
+#  - body: bs4 tag -- the <p> or <span class="deleted-comment"> tag containing the comment body
+#  - timestamp: str -- the date/time string with the post time
+class BlogComment:
+    pass
+
+def _filter_newlines(elements):
+    ret = []
+    for e in elements:
+        if e.name is None and str(e) == "\n":
+            continue
+        ret.append(e)
+    return ret
+
 def _get_comments(url):
     total_count = _get_comments_count(url)
     page_count = (total_count + 199) // 200
@@ -70,21 +89,64 @@ def _get_comments(url):
     for page in range(1, page_count + 1):
         page_url = url if page == 1 else url + ("?commentPage=%d" % page)
         page_comments = copy(_page(page_url).select_one("#comments-block"))
+        _replace_delay_load(page_comments)
 
         # remove "Delete Comment" buttons
         for x in page_comments.select(".blog-admin"):
             x.decompose()
 
-        for i, x in enumerate(page_comments.contents):
-            if i % 2 == 0:
-                assert x.name is None
-                assert str(x) == "\n"
-            else:
-                assert x.name == {0:"dt", 1:"dd", 2:"dd"}[(i - 1) / 2 % 3]
-        ret += [Comment("comments from %s" % page_url)]
-        ret += page_comments.contents
+        page_comments = _filter_newlines(page_comments.contents)
+        assert len(page_comments) % 3 == 0
+        for i in range(0, len(page_comments), 3):
+            elements = page_comments[i : i + 3]
+            assert elements[0].name == "dt" and "comment-author" in elements[0].attrs["class"]
+            assert elements[1].name == "dd" and "comment-body" in elements[1].attrs["class"]
+            assert elements[2].name == "dd" and "comment-footer" in elements[2].attrs["class"]
 
-    return total_count, ret
+            c = BlogComment()
+
+            # Parse <dt class="comment-author">
+            c.id = str(elements[0].attrs["id"])
+            img_element = elements[0].img
+            c.avatar_url = str(img_element.attrs["src"])
+            c.avatar_size = (int(img_element.attrs["width"]), int(img_element.attrs["height"]))
+
+            # Parse <dt class="comment-author">...<a href="...">John Doe</a> said
+            c.is_stock_avatar = "avatar-stock" in elements[0].select_one("div.avatar-image-container").attrs["class"]
+            profile_anchor = elements[0].select_one("div.avatar-image-container").next_sibling
+            if profile_anchor.name is None and str(profile_anchor) == "\n":
+                profile_anchor = profile_anchor.next_sibling
+            assert profile_anchor.name == "a"
+            anchor_contents = profile_anchor.contents
+            assert len(anchor_contents) == 1
+            anchor_contents = anchor_contents[0]
+            if anchor_contents.name == "b":
+                # With this comment, the anchor_contents is <b>Visionary1usa</b>.
+                #    https://thearchdruidreport.blogspot.com/2015/12/too-little-too-late.html?showComment=1450947451268#c7853937568850886967
+                # I think the <b> tag is a one-off anomaly.  I think
+                # "Visionary1usa" has put <b> tags in their screenname for
+                # whatever reason.  The popup text for Visionary1usa's avatar
+                # is busted -- it shows me `&lt;b&gt;Visionary1usa&lt;/b&gt;`.
+                anchor_contents = anchor_contents.contents
+                assert len(anchor_contents) == 1
+                anchor_contents = anchor_contents[0]
+            assert anchor_contents.name is None
+            c.author_name = str(anchor_contents.string)
+            c.profile_url = str(profile_anchor.attrs["href"])
+
+            # Parse <dt class="comment-body">
+            body_contents = _filter_newlines(elements[1].contents)
+            assert len(body_contents) == 1
+            assert body_contents[0].name == "p" or \
+                (body_contents[0].name == "span" and body_contents[0].attrs["class"] == ["deleted-comment"])
+            c.body = body_contents[0]
+
+            # Parse <dt class="comment-footer">
+            c.timestamp = str(elements[2].find("a", title="comment permalink").string).strip()
+            ret.append(c)
+
+    assert total_count == len(ret)
+    return ret
 
 def _replace_delay_load(doc):
     # Most comment avatar images are "delayLoad". (Special Javascript I guess?)
@@ -223,14 +285,16 @@ MAIN_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
-    <link href="%(resources)s/favicon.ico" rel="icon" type="image/x-icon"/>
-    <link type="text/css" rel="stylesheet" href="%(resources)s/58827200-widget_css_bundle.css"/>
-    <link type="text/css" rel="stylesheet" href="%(resources)s/blogger-page-skin-1.css"/>
-    <link type="text/css" rel="stylesheet" href="%(resources)s/blogger-authorization.css"/>
+    <link href="%(url_to_root)s/resources/favicon.ico" rel="icon" type="image/x-icon"/>
+    <link type="text/css" rel="stylesheet" href="%(url_to_root)s/resources/58827200-widget_css_bundle.css"/>
+    <link type="text/css" rel="stylesheet" href="%(url_to_root)s/resources/blogger-page-skin-1.css"/>
+    <link type="text/css" rel="stylesheet" href="%(url_to_root)s/resources/blogger-authorization.css"/>
+    <link type="text/css" rel="stylesheet" href="%(url_to_root)s/resources/archive-extra-styles.css"/>
+    <link type="text/css" rel="stylesheet" href="%(url_to_root)s/avt/avatars.css"/>
     <title></title>
 
-    <script src="%(resources)s/posts.js"></script>
-    <script src="%(resources)s/archive_toggle.js"></script>
+    <script src="%(url_to_root)s/resources/posts.js"></script>
+    <script src="%(url_to_root)s/resources/archive_toggle.js"></script>
 </head>
 <body>
     <div id="outer-wrapper">
@@ -317,33 +381,70 @@ def _gen_sidebar(page_url, url_to_root):
     return ret
 
 
-# parent is the #comments-block <dl> tag that contains, for each comment,
-# three tags:
-#   <dt class="comment-author" ... />
-#   <dd class="comment-body" ... />
-#   <dd class="comment-footer" ... />
-# It also contains one <!-- --> comment for each original HTML page of comments.
-def _compress_comments_html(parent):
-    _replace_delay_load(parent)
-    for e in parent.find_all("a", class_="avatar-hovercard"):
-        # Clean useless stuff off the avatar anchor.
-        assert e.attrs["id"].startswith("av-")
-        assert e.attrs["onclick"] == ""
-        del e.attrs["onclick"]
-        del e.attrs["id"]
-        # Optimize the avatar image.
-        i = e.contents[0]
-        assert i.name == "img"
-        assert i.attrs["alt"] == ""
-        del i.attrs["alt"]
-    for e in parent.find_all("dd", class_="comment-body"):
-        assert e.attrs["id"].startswith("Blog1_cmt-")
-        del e.attrs["id"]
-    for e in parent.select("span.comment-timestamp > a"):
-        assert e.attrs["title"] == "comment permalink"
-        m = re.match(r".*(#c\d+)$", str(e.attrs["href"]))
-        assert m
-        e.attrs["href"] = m.group(1)
+def _avatar_class_name_from_filename(path):
+    # There are a few places where Blogger stretches a 26x35 or 25x35 image
+    # to 35x35, then reuses the image elsewhere with the proper dimension.
+    # This archiving software preserves the Blogger behavior rather than
+    # attempt to correct it.  As a result, we need to include the image
+    # resampling size in the avatar class name to avoid warnings like these:
+    #
+    # WARNING: avatar filenames conflict!
+    #   7f6d69-35x35-g95.jpg
+    #   7f6d69-g95.jpg
+    # WARNING: avatar filenames conflict!
+    #   addb3e-35x35-g95.jpg
+    #   addb3e-g95.jpg
+    path = os.path.basename(path)
+    m = re.match("([a-f0-9]{6}(?:-\d+x\d+)?)(?:-g\d{2,3})?.(?:gif|jpg|png)$", path)
+    if not m:
+        return None
+    return "a_" + m.group(1).replace("-", "_")
+
+
+def _gen_comments_div(comments):
+    html = []
+
+    html.append(" ".join("""
+            <div class="comments" id="comments">
+                <h4>%(count)s:</h4>
+                <div id="Blog1_comments-block-wrapper">
+                    <dl class="avatar-comment-indent" id="comments-block">
+                        <div class="cmt">
+    """.split()) % {"count": _count_string(len(comments), "comment")})
+    html.append("\n")
+
+    def _intern_avatar_async(c):
+        return _intern_image_async(c.avatar_url, IMAGE_TYPE_AVATAR, c.avatar_size, False)
+
+    # For better concurrency, get this work started now.
+    for c in comments:
+        _intern_avatar_async(c)
+
+    for c in comments:
+        job = _intern_avatar_async(c)
+        avatar_class = "avt"
+        if not c.is_stock_avatar:
+            avatar_class += "b"
+        if job is not None:
+            avatar_class += " " + _avatar_class_name_from_filename(job.get())
+        html.append("""<div class="%s" id="%s"></div>""" % (avatar_class, c.id))
+        html.append("""<b><a href="%s" rel=nofollow>%s</a> said...</b>""" % (c.profile_url, c.author_name))
+        html.append("""</div><div class="cmt">""")
+        body = str(c.body).strip()
+        if body.startswith("<p>") and body.endswith("</p>"):
+            body = body[3:-4].strip()
+        html.append(body)
+        html.append("""<br><br><a href="#%s" title="comment permalink">%s</a><br><br>""" % (c.id, c.timestamp))
+        html.append("\n")
+
+    html.append(" ".join("""
+                        </div>
+                    </dl>
+                </div>
+            </div>
+    """.split()))
+
+    return _soup("".join(html), "div")
 
 
 def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
@@ -385,22 +486,7 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
 
     # Add comments.
     if include_comments:
-        total_comments, comment_elements = _get_comments(page_url)
-        comments_div = _soup("""
-                <div class="comments" id="comments">
-                    <a name="comments"></a>
-                    <h4>%(comments)s:</h4>
-                    <div id="Blog1_comments-block-wrapper">
-                        <dl class="avatar-comment-indent" id="comments-block">
-                        </dl>
-                    </div>
-                </div>""" % {"comments" : _count_string(total_comments, "comment")},
-            "div")
-        comments_div_dl = comments_div.select_one("#comments-block")
-        for e in comment_elements:
-            comments_div_dl.append(e)
-        date_outer.select_one(".comments").replace_with(comments_div)
-        _compress_comments_html(comments_div_dl)
+        date_outer.select_one(".comments").replace_with(_gen_comments_div(_get_comments(page_url)))
     else:
         date_outer.select_one(".comments").decompose()
 
@@ -500,22 +586,39 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi
             return None
         html_size = img.size
     else:
-        if not hidpi:
-            if any(img.size[d] > html_size[d] for d in (0, 1)):
-                resample_size = tuple(min(img.size[d], html_size[d]) for d in (0, 1))
-        else:
-            hidpi_ratio = min(2.0, min(img.size[d] / html_size[d] for d in (0, 1)))
-            if hidpi_ratio >= 1.5:
-                resample_size = tuple(round(html_size[d] * hidpi_ratio) for d in (0, 1))
+        if image_type == IMAGE_TYPE_AVATAR:
+            # Avatar images are special w.r.t. sizing.  The image is loaded
+            # via a CSS background-image property, so if we need to stretch it
+            # in one dimension or the other, we must do it beforehand.  The
+            # simplest thing to do is to force the image to either have the
+            # exact size as the original HTML img tag, or to have double the
+            # size if we're trying to preserve extra resolution.
+            assert not hidpi
+            if all(img.size[d] >= 1.8 * html_size[d] for d in (0, 1)):
+                resample_size = tuple(html_size[d] * 2 for d in (0, 1))
             else:
-                return None
+                resample_size = html_size
+        else:
+            # Normal image pathway.
+            if not hidpi:
+                if any(img.size[d] > html_size[d] for d in (0, 1)):
+                    resample_size = tuple(min(img.size[d], html_size[d]) for d in (0, 1))
+            else:
+                hidpi_ratio = min(2.0, min(img.size[d] / html_size[d] for d in (0, 1)))
+                if hidpi_ratio >= 1.5:
+                    resample_size = tuple(round(html_size[d] * hidpi_ratio) for d in (0, 1))
+                else:
+                    return None
+    if resample_size == img.size:
+        resample_size = None
 
     guetzli_quality = 95
     if hidpi and image_type != IMAGE_TYPE_AVATAR:
         guetzli_quality = 92
     if img.mode in ["L", "LA", "RGBA"] or "transparency" in img.info:
         guetzli_quality = 0
-    job = (name, url, resample_size, guetzli_quality)
+    force_resampling = resample_size and image_type == IMAGE_TYPE_AVATAR
+    job = (name, url, resample_size, guetzli_quality, force_resampling)
     is_job_cached = _image_compressor.has_cached(job)
     _image_compressor.start_compress_async(job)
 
@@ -653,20 +756,11 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
     for x in out.find_all("img"):
         _promo_image_replacement(x)
         src = x.attrs["src"]
-        is_avatar = x.parent.attrs.get("class") == ["avatar-hovercard"]
-        image_type = [IMAGE_TYPE_NORMAL, IMAGE_TYPE_AVATAR][is_avatar]
         html_size = (x.attrs.get("width"), x.attrs.get("height"))
 
         normal_path = None
-        hidpi_path = _intern_image_async(src, image_type, html_size, True)
-        if is_avatar and hidpi_path is not None:
-            # If this was an avatar, then we just use the hidpi image without a
-            # srcset.  Avatars are small anyway, and we care about the size of
-            # the avatar img-src in the comments' HTML.
-            normal_path = hidpi_path
-            hidpi_path = None
-        else:
-            normal_path = _intern_image_async(src, image_type, html_size, False)
+        hidpi_path = _intern_image_async(src, IMAGE_TYPE_NORMAL, html_size, True)
+        normal_path = _intern_image_async(src, IMAGE_TYPE_NORMAL, html_size, False)
 
         if normal_path is None:
             assert hidpi_path is None
@@ -804,7 +898,7 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
 
 
 def _generate_common(page_url, url_to_root):
-    out = _soup(MAIN_TEMPLATE % {"resources" : url_to_root + "/resources"}, None)
+    out = _soup(MAIN_TEMPLATE % {"url_to_root" : url_to_root}, None)
     out.select_one("#sidebarbottom-wrap1").replace_with(_gen_sidebar(page_url, url_to_root))
     return out
 
@@ -949,6 +1043,7 @@ def _gen_resources():
         subprocess.check_call(["node_modules/.bin/minify", "resources/archive_toggle.js"])
     util.makedir(OUTPUT_DIRECTORY + "/resources")
     shutil.copyfile("resources/archive_toggle.min.js", OUTPUT_DIRECTORY + "/resources/archive_toggle.js")
+    shutil.copyfile("resources/archive-extra-styles.css", OUTPUT_DIRECTORY + "/resources/archive-extra-styles.css")
 
     # Pull in the main Blogger template's stylesheet.
     url = "https://thearchdruidreport.blogspot.com/2006/05/real-druids.html"
@@ -973,7 +1068,42 @@ def _gen_resources():
     _generate_posts_js(OUTPUT_DIRECTORY + "/resources")
 
 
-def _generate_everything(apply_):
+def _rescale_size(s0, s1):
+    # Scale s0 to the largest size still contained by s1.
+    ratio = min(s1[d] / s0[d] for d in (0, 1))
+    return tuple(round(s0[d] * ratio) for d in (0, 1))
+
+
+def _generate_avt_css():
+    table = {}
+    for filename in sorted(os.listdir(OUTPUT_DIRECTORY + "/avt")):
+        class_ = _avatar_class_name_from_filename(filename)
+        if not class_:
+            continue
+        if class_ in table:
+            print("WARNING: avatar filenames conflict! (class %s)" % class_)
+            print("  %s" % table[class_])
+            print("  %s" % filename)
+        else:
+            table[class_] = filename
+    output = []
+    for class_ in sorted(table.keys()):
+        filename = table[class_]
+        with PIL.Image.open(os.path.join(OUTPUT_DIRECTORY, "avt", filename)) as img:
+            size = img.size
+        size = _rescale_size(size, (35, 35))
+        css = ".%s:before{background-image:url(%s);" % (class_, filename)
+        if size[0] != 35:
+            css += "left:%dpx;" % (-10 - size[0])
+            css += "width:%dpx;" % size[0]
+        if size[1] != 35:
+            css += "height:%dpx;" % size[1]
+        css += "}"
+        output.append(css)
+    util.set_file_text(OUTPUT_DIRECTORY + "/avt/avatars.css", "\n".join(output))
+
+
+def _generate_everything(apply_, flush):
     if os.path.exists(OUTPUT_DIRECTORY):
         shutil.rmtree(OUTPUT_DIRECTORY)
 
@@ -990,8 +1120,12 @@ def _generate_everything(apply_):
     for p in all_posts[::-1]:
         apply_(generate_single_post, (p.url,))
 
+    # Index all the avatar images.
+    flush()
+    _generate_avt_css()
 
-def _small_test_run(apply_):
+
+def _small_test_run(apply_, flush):
     _gen_resources()
     for year in [2015, 2016]:
         for month in range(1, 13):
@@ -999,22 +1133,27 @@ def _small_test_run(apply_):
     for p in load_posts():
         if 2015 <= p.year <= 2016:
             apply_(generate_single_post, (p.url,))
+    flush()
+    _generate_avt_css()
 
 
-def main(apply_):
+def main(apply_, flush):
     #_gen_resources()
-    # generate_redirects()
-    # for p in load_posts():
-    #     if p.year <= 2006:
+    #generate_redirects()
+    # for p in load_posts()[::-1]:
+    #     if (p.year, p.month) >= (2015, 11):
     #         apply_(generate_single_post, (p.url,))
     #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2009/02/toward-ecosophy.html",))
-    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2013/01/into-unknown-country.html",))
-    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2016/01/donald-trump-and-politics-of-resentment.html",))
-    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2009/12/immodest-proposals.html",))
-    # apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2006/05/deer-in-headlights.html",))
-    # generate_single_post("https://thearchdruidreport.blogspot.com/2009/01/pornography-of-political-fear.html")
+    #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2015/12/too-little-too-late.html",))
+    #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2016/01/donald-trump-and-politics-of-resentment.html",))
+    #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2009/12/immodest-proposals.html",))
+    #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2006/05/deer-in-headlights.html",))
+    #apply_(generate_single_post, ("https://thearchdruidreport.blogspot.com/2007/05/view-from-grassy-knoll.html",))
+    #generate_single_post("https://thearchdruidreport.blogspot.com/2009/01/pornography-of-political-fear.html")
     #_small_test_run(apply_)
-    _generate_everything(apply_)
+    #flush()
+    #_generate_avt_css()
+    _generate_everything(apply_, flush)
 
 
 def _set_fs_lock(lock):
@@ -1052,7 +1191,8 @@ def main_parallel():
             processes=multiprocessing.cpu_count(),
             initializer=_multiproc_init, initargs=(_fs_lock, _image_compressor)) as pool:
         tasks = []
-        main(lambda func, args: tasks.append(pool.apply_async(func, args)))
+        main(apply_=(lambda func, args: tasks.append(pool.apply_async(func, args))),
+             flush=(lambda: [t.get() for t in tasks] and None))
         for t in tasks:
             t.get()
 
@@ -1063,7 +1203,8 @@ def main_single():
     _set_fs_lock(lock)
     _image_compressor = image_compressor.SyncImageCompressor()
 
-    main(lambda func, args: func(*args))
+    main(apply_=(lambda func, args: func(*args)),
+         flush=(lambda: None))
 
 
 if __name__ == "__main__":

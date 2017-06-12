@@ -1,0 +1,23 @@
+https://www.blogger.com/profile/01482442660037681609
+
+../../prof/123456.html
+
+---
+
+<dt class="comment-author " id="c983893092060395004">
+<div class="avatar-image-container vcard"><span dir="ltr"><a class="avatar-hovercard" href="https://www.blogger.com/profile/01482442660037681609" rel="nofollow"><img class="photo" height="35" src="../../avt/69753c-g95.jpg" width="35"/>
+</a></span></div>
+<a href="https://www.blogger.com/profile/01482442660037681609" rel="nofollow">Steve D</a>
+said...
+</dt>
+
+---
+
+<div class="com-aut" id="c983893092060395004">
+<div class="avt-img"><a href="../../prof/123456.html" rel="nofollow"><div class="avt-123456"/></a</div>
+<a href="../../prof/123456.html" rel="nofollow">Steve D</a> said...
+</div>
+
+---
+
+<div class="com-aut" id="c983893092060395004"><div class="avt-123456"/><a href="../../prof/12.html#3456">Steve D</a> said...</div></div>

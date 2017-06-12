@@ -90,25 +90,29 @@ def _compress_image(job, dont_block):
 
 
 def _compress_image_super(job, dont_block=False):
-    name, url, resample_size, guetzli_quality = job
+    name, url, resample_size, guetzli_quality, force_resampling = job
 
-    mainjob0 = _compress_image((name, url, None, 0), dont_block)
-    mainjob1 = _compress_image(job, dont_block)
-    if mainjob0 is None or mainjob1 is None:
+    ret = _compress_image((name, url, resample_size, guetzli_quality), dont_block)
+    if ret is None:
         return None
 
-    if mainjob0[2] <= mainjob1[2] and resample_size and guetzli_quality:
-        # If the original file was smaller, we'll prefer it to the
-        # resampled-and-compressed file.  First, though, try simply compressing
-        # the unmodified original.
-        mainjob1 = _compress_image((name, url, None, guetzli_quality), dont_block)
-        if mainjob1 is None:
-            return None
-
-    if mainjob0[2] <= mainjob1[2]:
-        ret = mainjob0
+    if force_resampling:
+        assert resample_size
     else:
-        ret = mainjob1
+        # Reuse the original image if it's smaller.
+        orig = _compress_image((name, url, None, 0), dont_block)
+        assert orig is not None
+
+        if orig[2] <= ret[2] and resample_size and guetzli_quality:
+            # If the original file was smaller, we'll prefer it to the
+            # resampled-and-compressed file.  First, though, try simply compressing
+            # the unmodified original.
+            ret = _compress_image((name, url, None, guetzli_quality), dont_block)
+            if ret is None:
+                return None
+
+        if orig[2] <= ret[2]:
+            ret = orig
 
     return (ret[0], ret[1])
 

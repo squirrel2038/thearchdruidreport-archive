@@ -1,0 +1,60 @@
+COMPRESSION:
+ - Try to turn <br/> into <br>
+ - Get rid of trailing </p> where possible.
+
+
+
+Inside post:
+
+<div id="Blog1_comments-block-wrapper">
+    <dl class="avatar-comment-indent" id="comments-block"> -- margin of 45px on left, 15px on right
+        ...
+    </dl>
+</div>
+
+
+Inside indented area:
+
+<dt class="comment-author"> -- margin of 0.5em on top/bottom, padding of 20px on left
+    .comment-author (blogger-page-skin-1.css)
+    - margin: top=0.5em bottom=0.5em
+    - padding of 20px on left
+    - font-weight: bold
+    - background-url: img/icon-comment-left-6893ba.png (the little "chatbox" icon)
+
+    <div class="avatar-image-container avatar-stock">
+        #comments-block .avatar-image-container (58827200-widget-...bundle.css)
+        - left: -45px
+        - position: absolute
+        - height: 37px
+        - width: 37px
+        .comments .avatar-image-container (58827200-widget-...bundle.css)
+        - float: left
+        - max-height: 36px
+        - overflow: hidden
+
+        <span dir="ltr">  -- I don't know why this is here.  It's *always* ltr, never rtl.
+
+            <a class="avatar-hovercard" href="blogger.com/profile/..." rel="nofollow">
+
+                <img height="35 src="../../abt/123456.png" title="fatguyonalittlebike" width="35"/>
+                #comments-block .avatar-image-container.avatar-stock img (58827200-widget-...bundle.css)
+                - border-width: 0px
+                - padding: 1px
+
+<dd class="comment-body"> -- margin of 1.25em on bottom, padding of 20px on left
+    #comments-block.avatar-comment-indent dd (58827200-widget-...bundle.css)
+    - margin-left: 0;
+    .comment-body (blogger-page-skin-1.css)
+    - margin: top=0px right=0px bottom=1.25em left=0px
+    - padding: left=20px
+
+    <p> -- margin of 0.5em on bottom
+
+<dt class="comment-footer"> -- margin of 0.5em on bottom, padding of 20px on left and 0.75em on bottom
+
+    <span class="comment-timestamp">
+
+        <a href="#c..." title="comment permalink">1/1/10 1:00PM</a>
+        .comment-footer a:link (blogger-page-skin-1.css)
+        - color: #ced;
