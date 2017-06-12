@@ -24,13 +24,14 @@ import threading
 import urllib.request
 import image_compressor
 
+from app_locks import AppLocks
 import web_cache
 import util
 
 _page_cache = {}
 _pil_image_cache = {}
 _intern_image_cache = {}
-_fs_lock = None
+_output_image_lock = None
 _image_compressor = None
 
 OUTPUT_DIRECTORY = "the-archdruid-report"
@@ -669,7 +670,7 @@ def _intern_image(url, *args, **kwargs):
 
 
 def _write_image_file(base_dir, name, extension, data):
-    with _fs_lock:
+    with _output_image_lock:
         extra_cnt = 1
         extra_txt = ""
         while True:
@@ -1156,17 +1157,17 @@ def main(apply_, flush):
     _generate_everything(apply_, flush)
 
 
-def _set_fs_lock(lock):
-    global _fs_lock
-    _fs_lock = lock
-    web_cache.set_fs_lock(lock)
-    image_compressor.set_fs_lock(lock)
+def _set_app_locks(app_locks):
+    global _output_image_lock
+    _output_image_lock = app_locks.output_image_lock
+    web_cache.set_fs_lock(app_locks.web_cache_lock)
+    image_compressor.set_app_locks(app_locks)
 
 
-def _multiproc_init(lock, compressor):
+def _multiproc_init(app_locks, compressor):
     global _image_compressor
     _image_compressor = compressor
-    _set_fs_lock(lock)
+    _set_app_locks(app_locks)
 
 
 class _ImageCompressorManager(multiprocessing.managers.BaseManager):
@@ -1181,15 +1182,16 @@ _ImageCompressorManager.register("ImageCompressor", image_compressor.ImageCompre
 
 def main_parallel():
     global _image_compressor
-    lock = multiprocessing.Lock()
-    _set_fs_lock(lock)
+    app_locks = AppLocks(is_single_threaded=False)
+    _set_app_locks(app_locks)
+
     compressor_mgr = _ImageCompressorManager()
     compressor_mgr.start()
     _image_compressor = compressor_mgr.ImageCompressor()
 
     with multiprocessing.Pool(
             processes=multiprocessing.cpu_count(),
-            initializer=_multiproc_init, initargs=(_fs_lock, _image_compressor)) as pool:
+            initializer=_multiproc_init, initargs=(app_locks, _image_compressor)) as pool:
         tasks = []
         main(apply_=(lambda func, args: tasks.append(pool.apply_async(func, args))),
              flush=(lambda: [t.get() for t in tasks] and None))
@@ -1199,8 +1201,8 @@ def main_parallel():
 
 def main_single():
     global _image_compressor
-    lock = threading.Lock()
-    _set_fs_lock(lock)
+    app_locks = AppLocks(is_single_threaded=True)
+    _set_app_locks(app_locks)
     _image_compressor = image_compressor.SyncImageCompressor()
 
     main(apply_=(lambda func, args: func(*args)),
