@@ -412,7 +412,7 @@ def _gen_comments_div(comments):
             <div class="comments" id="comments">
                 <h4>%(count)s:</h4>
                 <div id="Blog1_comments-block-wrapper">
-                    <dl class="avatar-comment-indent" id="comments-block">
+                    <div class="avatar-comment-indent" id="comments-block">
                         <div class="cmt">
     """.split()) % {"count": _count_string(len(comments), "comment")})
     html.append("\n")
@@ -443,7 +443,7 @@ def _gen_comments_div(comments):
 
     html.append(" ".join("""
                         </div>
-                    </dl>
+                    </div>
                 </div>
             </div>
     """.split()))
