@@ -51,7 +51,7 @@ def _compress_image(job, dont_block):
 
     # Save as PNG format.
     name_extra = ""
-    if resample_size or orig_ext not in [".png", ".jpg"]:
+    if resample_size or (guetzli_quality and orig_ext not in [".png", ".jpg"]):
         if resample_size:
             name_extra += "-%dx%d" % resample_size
         new_path = util.abspath(os.path.join(IMG_CACHE_DIR, name + urlhash + name_extra + ".png"))
