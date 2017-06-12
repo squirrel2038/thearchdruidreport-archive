@@ -1,4 +1,4 @@
-var arc_tog = (function() {
+var archive_toggle = (function() {
 
     var arc_populated_already = {};
 
@@ -31,17 +31,15 @@ var arc_tog = (function() {
         return year + "_" + get_month_2dig(month);
     }
 
-    function arc_tog(id) {
+    function archive_toggle(id) {
         var e = document.getElementById("arc_" + id);
         var es = e.getElementsByTagName("span")[0];
         if (e.className.match(/\bexpanded\b/)) {
-            e.className = "archivedate collapsed";
-            es.className = "zippy";
+            e.className = "collapsed";
             es.innerHTML = "►&nbsp;";
             arc_populated_already[id] = true;
         } else {
-            e.className = "archivedate expanded";
-            es.className = "zippy toggle-open";
+            e.className = "expanded";
             es.innerHTML = "▼&nbsp;";
             if (!arc_populated_already[id]) {
                 arc_populated_already[id] = true;
@@ -56,10 +54,10 @@ var arc_tog = (function() {
                         var count = blog_archive_posts[month_id].length;
                         var index_url = '../../' + id + '/' + get_month_2dig(month) + '/index.html';
                         newhtml +=
-                            '<ul class="hierarchy">' +
-                                '<li class="archivedate collapsed" id="arc_' + month_id + '">' +
-                                    '<a class="toggle" onclick="arc_tog(\'' + month_id + '\')" href="javascript:void(0)">' +
-                                        '<span class="zippy">►&nbsp;</span>' +
+                            '<ul>' +
+                                '<li class="collapsed" id="arc_' + month_id + '">' +
+                                    '<a class="toggle" onclick="archive_toggle(\'' + month_id + '\')" href="javascript:void(0)">' +
+                                        '<span>►&nbsp;</span>' +
                                     '</a>' +
                                     '<a class="post-count-link" href="' + index_url + '">' +
                                         get_month_name(month) +
@@ -86,5 +84,18 @@ var arc_tog = (function() {
         }
     }
 
-    return arc_tog;
+    return archive_toggle;
 })();
+
+function init_archive_widget() {
+    var top = document.getElementById("BlogArchive1_ArchiveList");
+    var elements = top.getElementsByTagName("li");
+    for (var i = 0; i < elements.length; ++i) {
+        var e = elements[i];
+        var m = null;
+        if (m = e.id.match(/^arc_(\d\d\d\d(_\d\d)?)$/)) {
+            var es = e.getElementsByTagName("span")[0];
+            es.outerHTML = '<a class="toggle" onclick="archive_toggle(\'' + m[1] + '\')" href="javascript:void(0)">' + es.outerHTML + '</a>';
+        }
+    }
+}

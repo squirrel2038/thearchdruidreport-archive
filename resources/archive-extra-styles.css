@@ -63,3 +63,7 @@
 
 #comments-block a[title="comment permalink"]:link { color: #ced; }
 #comments-block a[title="comment permalink"]:visited { color: #779988; }
+
+span.arc_tog {
+    font-family: Arial,sans-serif;
+}

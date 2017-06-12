@@ -16,6 +16,7 @@ import json
 import multiprocessing
 import multiprocessing.managers
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -190,7 +191,6 @@ def load_posts():
         e.title = post["title"]
         e.url = post["url"]
         e.year, e.month, e.page = parse_tar_url(e.url)
-        e.relurl = "%04d/%02d/%s" % (e.year, e.month, e.page)
         ret.append(e)
     return ret
 
@@ -211,7 +211,7 @@ def _month_name(no):
     ][no - 1]
 
 
-def _gen_blog_archive(url_to_root, cur_year, cur_month):
+def _gen_blog_archive(cur_year, cur_month):
     ret = _soup('<div id="BlogArchive1_ArchiveList"></div>', "div")
     all_posts = load_posts()
     years = {}
@@ -219,61 +219,61 @@ def _gen_blog_archive(url_to_root, cur_year, cur_month):
     cur_year = int(cur_year)
     cur_month = int(cur_month)
 
+    def relurl_path(year, month, page=None):
+        dest = "%04d/%02d/%s" % (year, month, "index.html" if page is None else page)
+        src  = "%04d/%02d" % (cur_year, cur_month)
+        return posixpath.relpath(dest, src)
+
     for year in sorted(set([x.year for x in all_posts]))[::-1]:
         is_open = year == cur_year
-        e = """
-            <ul class="hierarchy">
-                <li class="archivedate %(class)s" id="arc_%(id)s">
-                    <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
-                        <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
-                    </a>
-                    <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(last_month)02d/index.html">%(year)04d</a> (%(count)d)</li>
-            </ul>
-            """ % {
+        e = (
+            '<ul>'
+                '<li class="%(class)s" id="arc_%(year)04d">'
+                    '<span class="arc_tog">%(spantext)s&nbsp;</span>'
+                    '<a class="post-count-link" href="%(url)s">%(year)04d</a> (%(count)d)</li>'
+            '</ul>'
+            ) % {
                 "class": ["collapsed", "expanded"][is_open],
-                "zippyclass": ["", " toggle-open"][is_open],
                 "spantext": ["►", "▼"][is_open],
-                "id": "%04d" % year,
-                "url_to_root": url_to_root,
+                "url" : relurl_path(year, max([x.month for x in all_posts if x.year == year])),
                 "year": year,
-                "last_month": max([x.month for x in all_posts if x.year == year]),
                 "count": len([x for x in all_posts if x.year == year]),
             }
         e = _soup(e, "ul")
         ret.append(e)
+        ret.append("\n")
         years[year] = e.li
 
     del year
 
     for month in sorted(set([x.month for x in all_posts if x.year == cur_year]))[::-1]:
         is_open = month == cur_month
-        e = """
-            <ul class="hierarchy">
-                <li class="archivedate %(class)s" id="arc_%(id)s">
-                    <a class="toggle" onclick="arc_tog('%(id)s')" href="javascript:void(0)">
-                        <span class="zippy%(zippyclass)s">%(spantext)s&nbsp;</span>
-                    </a>
-                    <a class="post-count-link" href="%(url_to_root)s/%(year)04d/%(month)02d/index.html">%(month_name)s</a> (%(count)d)<ul class="posts"></ul>
-                </li>
-            </ul>
-        """ % {
-            "class": ["collapsed", "expanded"][is_open],
-            "zippyclass": ["", " toggle-open"][is_open],
-            "spantext": ["►", "▼"][is_open],
-            "id": "%04d_%02d" % (cur_year, month),
-            "url_to_root": url_to_root,
-            "year": cur_year,
-            "month": month,
-            "month_name": _month_name(month),
-            "count": len([x for x in all_posts if (x.year, x.month) == (cur_year, month)]),
-        }
+        e = (
+            '<ul>'
+                '<li class="%(class)s" id="arc_%(id)s">'
+                    '<span class="arc_tog">%(spantext)s&nbsp;</span>'
+                    '<a class="post-count-link" href="%(url)s">%(month_name)s</a> (%(count)d)<ul class="posts"></ul>'
+                '</li>'
+            '</ul>'
+            ) % {
+                "class": ["collapsed", "expanded"][is_open],
+                "spantext": ["►", "▼"][is_open],
+                "id": "%04d_%02d" % (cur_year, month),
+                "url": relurl_path(cur_year, month),
+                "month_name": _month_name(month),
+                "count": len([x for x in all_posts if (x.year, x.month) == (cur_year, month)]),
+            }
         e = _soup(e, "ul")
         years[cur_year].append(e)
+        years[cur_year].append("\n")
         months[(cur_year, month)] = e.select_one(".posts")
 
     for p in [x for x in all_posts if (x.year, x.month) == (cur_year, cur_month)]:
         parent = months[(p.year, p.month)]
-        parent.append(_soup('<li><a href="%s/%s">%s</a></li>' % (url_to_root, p.relurl, html.escape(p.title, False)), "li"))
+        parent.append(_soup('<li><a href="%s">%s</a></li>' % (
+            relurl_path(p.year, p.month, p.page),
+            html.escape(p.title, False)
+        ), "li"))
 
     return ret
 
@@ -345,6 +345,9 @@ MAIN_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
     </div>
+    <script>
+        init_archive_widget();
+    </script>
 </body>
 </html>
 """
@@ -377,7 +380,7 @@ def _gen_sidebar(page_url, url_to_root):
 
     # Fixup the blog archive
     year, month, _ = parse_tar_url(page_url)
-    ret.select_one("#BlogArchive1_ArchiveList").replace_with(_gen_blog_archive(url_to_root, year, month))
+    ret.select_one("#BlogArchive1_ArchiveList").replace_with(_gen_blog_archive(year, month))
 
     return ret
 
@@ -796,6 +799,11 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
         if "href" not in x.attrs:
             continue
         href = str(x.attrs["href"])
+
+        if x.find_parent("div", id="BlogArchive1_ArchiveList"):
+            # We generate relative links in the blog archive tree -- they're
+            # all valid as-is.
+            continue
 
         # Fix a typo in: https://thearchdruidreport.blogspot.com/2015/03/planet-of-space-bats.html
         if href == "http://thearchdruidreport.blogspot.com/2011/09/invasion-of-space-bats":
