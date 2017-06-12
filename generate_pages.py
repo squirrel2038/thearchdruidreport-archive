@@ -481,6 +481,8 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi
     base_dir = "img"
     if image_type == IMAGE_TYPE_AVATAR:
         base_dir = "avt"
+    elif image_type == IMAGE_TYPE_RESOURCE:
+        base_dir = "resources"
 
     if extension == ".svg":
         if hidpi:
