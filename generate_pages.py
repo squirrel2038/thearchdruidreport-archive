@@ -525,9 +525,19 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
     return date_outer
 
 
+def _lookup_npm_program(name):
+    name = os.path.join("node_modules", ".bin", name)
+    if sys.platform == "win32":
+        if os.path.exists(name + ".cmd"):
+            name += ".cmd"
+    if not os.path.exists(name):
+        raise RuntimeError("npm program %s not installed" % name)
+    return name
+
+
 def _minify_html(html):
     p = subprocess.Popen([
-        "node_modules/.bin/html-minifier",
+        _lookup_npm_program("html-minifier"),
         "--collapse-whitespace",
         "--conservative-collapse",
         "--preserve-line-breaks",
@@ -1087,7 +1097,7 @@ def _gen_resources():
     if os.path.exists(OUTPUT_DIRECTORY + "/resources"):
         shutil.rmtree(OUTPUT_DIRECTORY + "/resources")
     if util.mtime("resources/archive_toggle.js") > util.mtime("resources/archive_toggle.min.js"):
-        subprocess.check_call(["node_modules/.bin/minify", "resources/archive_toggle.js"])
+        subprocess.check_call([_lookup_npm_program("minify"), "resources/archive_toggle.js"])
     util.makedir(OUTPUT_DIRECTORY + "/resources")
     shutil.copyfile("resources/archive_toggle.min.js", OUTPUT_DIRECTORY + "/resources/archive_toggle.js")
     shutil.copyfile("resources/archive-extra-styles.css", OUTPUT_DIRECTORY + "/resources/archive-extra-styles.css")
@@ -1256,5 +1266,10 @@ def main_single():
 
 
 if __name__ == "__main__":
-    #main_single()
-    main_parallel()
+    if sys.platform == "win32":
+        # win32 has the multiprocessing module, but it's not clear to me how
+        # to get the locks shared between all the workers, so use
+        # single-threaded processing instead.  (Use UNIX for speed.)
+        main_single()
+    else:
+        main_parallel()

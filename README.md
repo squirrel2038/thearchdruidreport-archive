@@ -55,6 +55,7 @@ This program uses Python 3 and a number of Python 3 packages:
 pip3 install beautifulsoup4
 pip3 install lxml
 pip3 install requests
+pip3 install pillow
 ```
 
 The program also uses node.js to minify a script.  I tested with
