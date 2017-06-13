@@ -75,13 +75,17 @@ def _get_comments_count(url):
 class BlogComment:
     pass
 
-def _filter_newlines(elements):
-    ret = []
-    for e in elements:
-        if e.name is None and str(e) == "\n":
-            continue
-        ret.append(e)
-    return ret
+def _is_space_element(e):
+    return e.name is None and str(e.string).strip() == ""
+
+def _filter_space(elements):
+    # Removes elements from a list that are only whitespace.
+    return list(filter((lambda e: not _is_space_element(e)), elements))
+
+def _strip_trailing_space(e):
+    # Remove trailing space elements from an element
+    while len(e.contents) >= 1 and _is_space_element(e.contents[-1]):
+        e.contents.pop(-1)
 
 def _get_comments(url):
     total_count = _get_comments_count(url)
@@ -97,7 +101,8 @@ def _get_comments(url):
         for x in page_comments.select(".blog-admin"):
             x.decompose()
 
-        page_comments = _filter_newlines(page_comments.contents)
+        page_comments = _filter_space(page_comments.contents)
+
         assert len(page_comments) % 3 == 0
         for i in range(0, len(page_comments), 3):
             elements = page_comments[i : i + 3]
@@ -137,7 +142,7 @@ def _get_comments(url):
             c.profile_url = str(profile_anchor.attrs["href"])
 
             # Parse <dt class="comment-body">
-            body_contents = _filter_newlines(elements[1].contents)
+            body_contents = _filter_space(elements[1].contents)
             assert len(body_contents) == 1
             assert body_contents[0].name == "p" or \
                 (body_contents[0].name == "span" and body_contents[0].attrs["class"] == ["deleted-comment"])
@@ -361,6 +366,19 @@ def _set_promo_img_size(img):
     img.attrs["height"] = str(h)
 
 
+def _filter_sidebar_space(e):
+    # Try to recursively remove whitespace without removing anything that
+    # might matter.
+    for c in e.contents:
+        if c.name is None and not _is_space_element(c):
+            return
+    for c in list(e.contents):
+        if c.name is None and _is_space_element(c):
+            e.contents.remove(c)
+        elif c.name is not None:
+            _filter_sidebar_space(c)
+
+
 def _gen_sidebar(page_url, url_to_root):
     # Replace the sidebar with the one from the source document.
     src = _page(page_url)
@@ -377,6 +395,27 @@ def _gen_sidebar(page_url, url_to_root):
         x.decompose()
     for x in ret.select(".clear"):
         x.decompose()
+
+    # Remove even more cruft from the sidebar widgets.
+    for x in ret.select("div.widget-content"):
+        _strip_trailing_space(x)
+        if len(x.contents) >= 1 and x.contents[-1].name == "br":
+            x.contents[-1].decompose()
+        _strip_trailing_space(x)
+        x.unwrap()
+    for x in ret.select("div,img"):
+        if re.match(r"(Image\d+(_img)?|Text\d+)$", str(x.attrs.get("id", ""))):
+            del x.attrs["id"]
+        if "data-version" in x.attrs:
+            del x.attrs["data-version"]
+        if "Image" in x.attrs.get("class", []):
+            x.attrs["class"].remove("Image")
+        if "Text" in x.attrs.get("class", []):
+            x.attrs["class"].remove("Text")
+    _filter_sidebar_space(ret)
+    for x in ret.select("div.widget"):
+        x.insert_after("\n")
+
 
     # Fixup the blog archive
     year, month, _ = parse_tar_url(page_url)
