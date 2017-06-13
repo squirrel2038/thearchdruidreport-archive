@@ -73,7 +73,7 @@ def _get_comments_count(url):
 #  - avatar_url: str -- the URL of the avatar/icon for the comment
 #  - avatar_size: (int, int) -- size in pixels
 #  - is_stock_avatar: bool -- whether the avatar-stock class is set (indicates no border)
-#  - body: bs4 tag -- the <p> or <span class="deleted-comment"> tag containing the comment body
+#  - body: str -- the <p> or <span class="deleted-comment"> tag containing the comment body
 #  - timestamp: str -- the date/time string with the post time
 class BlogComment:
     pass
@@ -96,14 +96,12 @@ def _get_comments(url):
     ret = []
 
     for page in range(1, page_count + 1):
+        # We don't make a copy of the BeautifulSoup element tree, which comes
+        # from the page cache.  Instead, this code is careful not to modify the
+        # tree.
+
         page_url = url if page == 1 else url + ("?commentPage=%d" % page)
-        page_comments = _copy_soup(_page(page_url).select_one("#comments-block"))
-        _replace_delay_load(page_comments)
-
-        # remove "Delete Comment" buttons
-        for x in page_comments.select(".blog-admin"):
-            x.decompose()
-
+        page_comments = _page(page_url).select_one("#comments-block")
         page_comments = _filter_space(page_comments.contents)
 
         assert len(page_comments) % 3 == 0
@@ -117,7 +115,10 @@ def _get_comments(url):
 
             # Parse <dt class="comment-author">
             c.id = str(elements[0].attrs["id"])
-            img_element = elements[0].img
+            avatar_anchor = elements[0].select_one("a.avatar-hovercard")
+            img_element = avatar_anchor.img
+            if "delayLoad" in img_element.attrs.get("class", []):
+                img_element = avatar_anchor.noscript.img
             c.avatar_url = str(img_element.attrs["src"])
             c.avatar_size = (int(img_element.attrs["width"]), int(img_element.attrs["height"]))
 
@@ -149,7 +150,7 @@ def _get_comments(url):
             assert len(body_contents) == 1
             assert body_contents[0].name == "p" or \
                 (body_contents[0].name == "span" and body_contents[0].attrs["class"] == ["deleted-comment"])
-            c.body = body_contents[0]
+            c.body = str(body_contents[0])
 
             # Parse <dt class="comment-footer">
             c.timestamp = str(elements[2].find("a", title="comment permalink").string).strip()
@@ -157,28 +158,6 @@ def _get_comments(url):
 
     assert total_count == len(ret)
     return ret
-
-def _replace_delay_load(doc):
-    # Most comment avatar images are "delayLoad". (Special Javascript I guess?)
-    for x in doc.select(".delayLoad"):
-        # Delayload img.
-        assert x.name == "img"
-        assert x.attrs["class"] == ["delayLoad"]
-        assert x.attrs["style"] == "display: none;"
-        assert "longdesc" in x.attrs
-        # Followed by a noscript tag.
-        n = x.next_sibling
-        if n.name is None:
-            n = n.next_sibling
-        assert n.name == "noscript"
-        assert len(n.contents) == 1
-        nn = n.contents[0]
-        assert nn.name == "img"
-        assert nn.attrs["src"] == x.attrs["longdesc"]
-        # Nuke the delayLoad image and replace it with the noscript img.
-        nn = nn.extract()
-        n.decompose()
-        x.replace_with(nn)
 
 def parse_tar_url(url):
     m = re.match(r"^https://thearchdruidreport.blogspot.com/(20\d\d)/(\d\d)/(.+[.]html)$", url)
@@ -476,7 +455,7 @@ def _gen_comments_div(comments):
         html.append("""<div class="%s" id="%s"></div>""" % (avatar_class, c.id))
         html.append("""<b><a href="%s" rel=nofollow>%s</a> said...</b>""" % (c.profile_url, c.author_name))
         html.append("""</div><div class="cmt">""")
-        body = str(c.body).strip()
+        body = c.body.strip()
         if body.startswith("<p>") and body.endswith("</p>"):
             body = body[3:-4].strip()
         html.append(body)
@@ -809,7 +788,6 @@ def _format_srcset_ratio(ratio):
 
 def _fixup_images_and_hyperlinks(out, url_to_root):
     # Image fixups -- replace delayLoad and //-relative paths.
-    _replace_delay_load(out)
 
     async_image_conversion = []
 
@@ -961,6 +939,9 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
     # validator fix: Error: Attribute trbidi not allowed on element div at this point.
     for x in out.find_all("div", trbidi="on"):
         del x.attrs["trbidi"]
+
+    assert len(out.select("img.delayLoad")) == 0
+    assert len(out.find_all("noscript")) == 0
 
 
 def _generate_common(page_url, url_to_root):
