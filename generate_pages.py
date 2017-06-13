@@ -7,7 +7,6 @@
 #
 
 from bs4 import BeautifulSoup, Comment
-from copy import copy
 import PIL.Image
 import io
 import hashlib
@@ -59,6 +58,10 @@ def _soup(text, tag):
         ret = getattr(ret, tag)
     return ret
 
+def _copy_soup(e):
+    assert e.name is not None
+    return _soup(str(e), e.name)
+
 def _get_comments_count(url):
     main_doc = _page(url)
     m = re.match(r"^(\d+) comments?:$", main_doc.select_one(".comments").h4.string)
@@ -94,7 +97,7 @@ def _get_comments(url):
 
     for page in range(1, page_count + 1):
         page_url = url if page == 1 else url + ("?commentPage=%d" % page)
-        page_comments = copy(_page(page_url).select_one("#comments-block"))
+        page_comments = _copy_soup(_page(page_url).select_one("#comments-block"))
         _replace_delay_load(page_comments)
 
         # remove "Delete Comment" buttons
@@ -383,7 +386,7 @@ def _gen_sidebar(page_url, url_to_root):
     # Replace the sidebar with the one from the source document.
     src = _page(page_url)
 
-    ret = copy(src.select_one('#sidebarbottom-wrap1'))
+    ret = _copy_soup(src.select_one('#sidebarbottom-wrap1'))
 
     # Fixup the images in the sidebar -- downscale them to 214px wide
     for x in ret.select("div.widget.Image"):
@@ -503,8 +506,8 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
                 </div>
             </div>""",
         "div")
-    date_outer.select_one(".date-header").replace_with(copy(doc.select_one('.date-header')))
-    date_outer.select_one(".post").replace_with(copy(doc.select_one('.post')))
+    date_outer.select_one(".date-header").replace_with(_copy_soup(doc.select_one('.date-header')))
+    date_outer.select_one(".post").replace_with(_copy_soup(doc.select_one('.post')))
     footer = date_outer.select_one(".post-footer")
     for x in footer.select(".reaction-buttons, .post-comment-link, .post-icons, .post-share-buttons, .post-footer-line-2, .post-footer-line-3"):
         x.decompose()
@@ -976,9 +979,9 @@ def generate_single_post(page_url):
     post_parent.append(_gen_blog_post(page_url, True, False))
 
     # Page navigation
-    out.select_one(".blog-pager").replace_with(copy(doc.select_one('.blog-pager')))
+    out.select_one(".blog-pager").replace_with(_copy_soup(doc.select_one('.blog-pager')))
 
-    out.title.replace_with(copy(doc.title))
+    out.title.replace_with(_copy_soup(doc.title))
     _fixup_images_and_hyperlinks(out, "../..")
     _write_page(out, OUTPUT_DIRECTORY + ("/%04d/%02d/%s" % parse_tar_url(page_url)))
 
