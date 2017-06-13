@@ -9,6 +9,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "html-minifier": "^3.5.2",
     "minifier": "^0.8.1"
   }
 }

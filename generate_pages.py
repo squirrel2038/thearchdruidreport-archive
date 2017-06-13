@@ -543,8 +543,23 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
     return date_outer
 
 
+def _minify_html(html):
+    p = subprocess.Popen([
+        "node_modules/.bin/html-minifier",
+        "--collapse-whitespace",
+        "--conservative-collapse",
+        "--preserve-line-breaks",
+        "--remove-attribute-quotes"
+    ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    (out, _) = p.communicate(html.encode("utf8"))
+    if p.returncode != 0:
+        print("WARNING: html-minifier failed: skipping minification")
+        return html
+    return out.decode("utf8")
+
+
 def _write_page(doc, path):
-    util.set_file_text(path, str(doc))
+    util.set_file_text(path, _minify_html(str(doc)))
 
 
 _friendly_image_name_re = re.compile(r"[^a-z0-9]+")
