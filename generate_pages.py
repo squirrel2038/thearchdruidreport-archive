@@ -31,7 +31,7 @@ import web_cache
 _page_cache = {}
 _pil_image_cache = {}
 _intern_image_cache = {}
-_output_image_lock = parallel_locking.make_lock()
+_output_image_lock = parallel_locking.make_lock("output_image_lock")
 _image_compressor = None
 
 OUTPUT_DIRECTORY = "the-archdruid-report"

@@ -13,7 +13,7 @@ import parallel_locking
 
 WEB_CACHE_DIR = os.path.dirname(__file__) + "/web_cache"
 POST_REQUEST_SLEEP_TIME = 2.0
-_lock = parallel_locking.make_lock()
+_lock = parallel_locking.make_lock("web_cache")
 
 
 _scheme_re = re.compile(r"^(?:file|http|https):")

@@ -13,5 +13,12 @@ def is_single_threaded():
     return _is_single_threaded
 
 
-def make_lock():
-    return threading.Lock() if _is_single_threaded else multiprocessing.Lock()
+def make_lock(name):
+    if _is_single_threaded:
+        return theading.Lock()
+    else:
+        # Help to guard against children creating the same lock repeatedly.
+        # Each lock should only be created once per run.
+        print("DEBUG: creating multiprocessing.Lock for %s" % name)
+        sys.stdout.flush()
+        return multiprocessing.Lock()

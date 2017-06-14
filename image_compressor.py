@@ -12,7 +12,7 @@ import web_cache
 
 
 IMG_CACHE_DIR = os.path.dirname(__file__) + "/img_cache"
-_img_cache_lock = parallel_locking.make_lock()
+_img_cache_lock = parallel_locking.make_lock("img_cache")
 
 
 def _exists_locked(path):
