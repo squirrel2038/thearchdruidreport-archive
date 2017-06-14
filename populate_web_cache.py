@@ -60,6 +60,16 @@ def _fetch_page_resources(url):
             web_cache.get(urllib.parse.urljoin(url, img.attrs["src"]))
         except web_cache.ResourceNotAvailable:
             pass
+
+        # As in generate_pages.py, if we have an image linking to a another
+        # (i.e. bigger) Blogspot image, cache the linked image.  (This step
+        # doesn't seem to do anything, because generate_pages.py already cached
+        # everything.)
+        if img.parent.name == "a" and "href" in img.parent.attrs:
+            href = img.parent.attrs["href"]
+            if re.match(r"(https?:)?//[1234]\.bp\.blogspot\.com/.*\.(png|gif|jpg|jpeg)$", href, re.IGNORECASE):
+                web_cache.get(href)
+
     for link in doc.find_all("link"):
         rel = link.attrs["rel"]
         href = link.attrs["href"]
