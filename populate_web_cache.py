@@ -161,7 +161,6 @@ def _download_posts_bare():
         js = json.loads(web_cache.get("https://thearchdruidreport.blogspot.com/feeds/posts/default?alt=json&start-index=%d&max-results=100" % start).decode("utf8"))
         for entry in js["feed"]["entry"]:
             count += 1
-            print(entry["title"]["$t"])
     assert count == len(generate_pages.load_posts())
 
 
