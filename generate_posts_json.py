@@ -7,8 +7,6 @@ import threading
 import web_cache
 import util
 
-web_cache.set_fs_lock(threading.Lock())
-
 # These HTTP requests are similar to those used by the blog's archive widget
 # to download each month's posts.
 

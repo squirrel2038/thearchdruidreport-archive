@@ -11,7 +11,6 @@ import urllib.parse
 import web_cache
 import generate_pages
 
-web_cache.set_fs_lock(threading.Lock())
 _page_cache = {}
 
 def _page(url):

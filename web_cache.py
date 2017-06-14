@@ -9,15 +9,11 @@ import time
 import threading
 
 import util
+import parallel_locking
 
 WEB_CACHE_DIR = os.path.dirname(__file__) + "/web_cache"
 POST_REQUEST_SLEEP_TIME = 2.0
-_lock = None
-
-
-def set_fs_lock(lock):
-    global _lock
-    _lock = lock
+_lock = parallel_locking.make_lock()
 
 
 _scheme_re = re.compile(r"^(?:file|http|https):")
@@ -66,6 +62,7 @@ def _canonurl(url):
 
 
 def has(url):
+    assert _lock
     with _lock:
         return os.path.exists(_canonbase(_canonurl(url)) + ".url")
 
@@ -74,6 +71,7 @@ class ResourceNotAvailable(Exception):
 
 
 def get(url):
+    assert _lock
     with _lock:
         url = _canonurl(url)
         path = _canonbase(url)

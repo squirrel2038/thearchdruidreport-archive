@@ -6,26 +6,17 @@ import os
 import subprocess
 import threading
 
+import parallel_locking
 import util
 import web_cache
 
 
 IMG_CACHE_DIR = os.path.dirname(__file__) + "/img_cache"
-_app_locks = None
-
-
-def set_app_locks(app_locks):
-    global _app_locks
-    _app_locks = app_locks
-
-
-def _multiproc_init(app_locks):
-    set_app_locks(app_locks)
-    web_cache.set_fs_lock(app_locks.web_cache_lock)
+_img_cache_lock = parallel_locking.make_lock()
 
 
 def _exists_locked(path):
-    with _app_locks.img_cache_lock:
+    with _img_cache_lock:
         return os.path.exists(path)
 
 
@@ -36,13 +27,15 @@ def _compress_image(job, dont_block):
     # image file has an alpha channel, it must not be converted to JPEG,
     # because JPEG conversion would destroy the channel.
 
+    assert _img_cache_lock
+
     urlhash = "-" + web_cache.urlhash(url)
 
     # First store the original, uncompressed file, in case we fall back to it.
     orig_bytes = web_cache.get(url)
     orig_ext = util.image_extension(orig_bytes)
     orig_path = util.abspath(os.path.join(IMG_CACHE_DIR, name + urlhash + orig_ext))
-    with _app_locks.img_cache_lock:
+    with _img_cache_lock:
         if not os.path.exists(orig_path):
             if dont_block:
                 return None
@@ -61,7 +54,7 @@ def _compress_image(job, dont_block):
             img = PIL.Image.open(cur_path)
             if resample_size:
                 img = img.resize(resample_size, PIL.Image.LANCZOS)
-            with _app_locks.img_cache_lock:
+            with _img_cache_lock:
                 img.save(new_path, "png")
         cur_path = new_path
         del new_path
@@ -79,7 +72,7 @@ def _compress_image(job, dont_block):
             guetzli_output = output.decode().strip()
             if guetzli_output != "":
                 print("WARNING: guetzli output on file '%s': %s" % (cur_path, guetzli_output))
-            with _app_locks.img_cache_lock:
+            with _img_cache_lock:
                 os.rename(tmp_path, new_path)
         cur_path = new_path
         del new_path
@@ -120,9 +113,9 @@ def _compress_image_super(job, dont_block=False):
 # This class is responsible for coordinating the image compressor tasks.
 class ImageCompressor:
     def __init__(self):
-        assert _app_locks
-        self._pool = multiprocessing.Pool(processes=multiprocessing.cpu_count(),
-                                          initializer=_multiproc_init, initargs=(_app_locks,))
+        assert _img_cache_lock
+        assert multiprocessing.get_start_method() == "fork"
+        self._pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
         self._jobs = {}
         self._jobs_lock = threading.Lock()
 

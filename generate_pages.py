@@ -23,16 +23,17 @@ import sys
 import threading
 import urllib.parse
 import urllib.request
-import image_compressor
 
-from app_locks import AppLocks
-import web_cache
+import image_compressor
+import parallel
+import parallel_locking
 import util
+import web_cache
 
 _page_cache = {}
 _pil_image_cache = {}
 _intern_image_cache = {}
-_output_image_lock = None
+_output_image_lock = parallel_locking.make_lock()
 _image_compressor = None
 
 OUTPUT_DIRECTORY = "the-archdruid-report"
@@ -1209,65 +1210,9 @@ def main(apply_, flush):
     #flush()
     #_generate_avt_css()
     _generate_everything(apply_, flush)
-
-
-def _set_app_locks(app_locks):
-    global _output_image_lock
-    _output_image_lock = app_locks.output_image_lock
-    web_cache.set_fs_lock(app_locks.web_cache_lock)
-    image_compressor.set_app_locks(app_locks)
-
-
-def _multiproc_init(app_locks, compressor):
-    global _image_compressor
-    _image_compressor = compressor
-    _set_app_locks(app_locks)
-
-
-class _ImageCompressorManager(multiprocessing.managers.BaseManager):
-    pass
-
-_ImageCompressorManager.register("ImageCompressor", image_compressor.ImageCompressor, exposed=[
-    "start_compress_async",
-    "compress",
-    "has_cached",
-])
-
-
-def main_parallel():
-    global _image_compressor
-    app_locks = AppLocks(is_single_threaded=False)
-    _set_app_locks(app_locks)
-
-    compressor_mgr = _ImageCompressorManager()
-    compressor_mgr.start()
-    _image_compressor = compressor_mgr.ImageCompressor()
-
-    with multiprocessing.Pool(
-            processes=multiprocessing.cpu_count(),
-            initializer=_multiproc_init, initargs=(app_locks, _image_compressor)) as pool:
-        tasks = []
-        main(apply_=(lambda func, args: tasks.append(pool.apply_async(func, args))),
-             flush=(lambda: [t.get() for t in tasks] and None))
-        for t in tasks:
-            t.get()
-
-
-def main_single():
-    global _image_compressor
-    app_locks = AppLocks(is_single_threaded=True)
-    _set_app_locks(app_locks)
-    _image_compressor = image_compressor.SyncImageCompressor()
-
-    main(apply_=(lambda func, args: func(*args)),
-         flush=(lambda: None))
+    #_generate_everything(apply_, flush)
 
 
 if __name__ == "__main__":
-    if sys.platform == "win32":
-        # win32 has the multiprocessing module, but it's not clear to me how
-        # to get the locks shared between all the workers, so use
-        # single-threaded processing instead.  (Use UNIX for speed.)
-        main_single()
-    else:
-        main_parallel()
+    _image_compressor = parallel.init_image_compressor()
+    parallel.run_main(main)
