@@ -44,9 +44,9 @@ def _fetch_year_month_queries():
 def _fetch_stylesheet_resources(css, base_url):
     i = 0
     p1 = re.compile(r"url\(")
-    p2 = re.compile(r"url\(\"([^\%\&()\\\"\']+)\"\)")
-    p3 = re.compile(r"url\(\'([^\%\&()\\\"\']+)\'\)")
-    p4 = re.compile(r"url\(([^\%\&()\\\"\']+)\)")
+    p2 = re.compile(r"url\(\"([^\%()\\\"\']+)\"\)")
+    p3 = re.compile(r"url\(\'([^\%()\\\"\']+)\'\)")
+    p4 = re.compile(r"url\(([^\%()\\\"\']+)\)")
     while True:
         s = p1.search(css, i)
         if s is None:
@@ -166,6 +166,19 @@ def _download_posts_bare():
 
 
 def _main(apply_, flush):
+    for url in [
+            # There are two desktop pages for viewing comments -- the main
+            # read-only page and a special white-backgrounded page for entering
+            # and viewing comments.  For 2013/01/into-unknown-country.html,
+            # this is the URL for the latter (two pages):
+            "https://www.blogger.com/comment.g?blogID=27481991&postID=5625187186942053195",
+            "https://www.blogger.com/comment.g?postID=5625187186942053195&blogID=27481991&isPopup=false&page=2",
+            # This is a comments page where there is a reply:
+            #  - desktop URL: http://thearchdruidreport.blogspot.com/2017/03/the-magic-lantern-show.html
+            "https://www.blogger.com/comment.g?blogID=27481991&postID=1891285484434881454",
+        ]:
+        _fetch_page_resources(url)
+
     _fetch_year_month_queries()
     _crawl_mobile_post_listings(apply_, flush)
     _crawl_mobile_posts(apply_, flush)
@@ -181,11 +194,13 @@ if __name__ == "__main__":
 # x = requests.get('https://thearchdruidreport.blogspot.com/feeds/739164683723753251/comments/default?alt=json&v=2&orderby=published&reverse=false&max-results=1000').json
 
 
-
-
 # This page has a reply, 125 comments
-# http://thearchdruidreport.blogspot.com/2017/03/the-magic-lantern-show.html?m=1
-# <link rel="alternate" type="application/atom+xml" title="The Archdruid Report - Atom" href="http://thearchdruidreport.blogspot.com/feeds/posts/default" />
-# <link rel="alternate" type="application/rss+xml" title="The Archdruid Report - RSS" href="http://thearchdruidreport.blogspot.com/feeds/posts/default?alt=rss" />
-# <link rel="service.post" type="application/atom+xml" title="The Archdruid Report - Atom" href="https://www.blogger.com/feeds/27481991/posts/default" />
-# <link rel="alternate" type="application/atom+xml" title="The Archdruid Report - Atom" href="http://thearchdruidreport.blogspot.com/feeds/1891285484434881454/comments/default" />
+#  - http://thearchdruidreport.blogspot.com/2017/03/the-magic-lantern-show.html?m=1
+# This comment is a reply, but you can't tell on the desktop site:
+#  - http://thearchdruidreport.blogspot.com/2017/03/the-magic-lantern-show.html?showComment=1488647590675&m=1#c3012836938846340532
+#  - http://thearchdruidreport.blogspot.com/2017/03/the-magic-lantern-show.html?showComment=1488647590675#c3012836938846340532
+# Links for this page:
+#   <link rel="alternate" type="application/atom+xml" title="The Archdruid Report - Atom" href="http://thearchdruidreport.blogspot.com/feeds/posts/default" />
+#   <link rel="alternate" type="application/rss+xml" title="The Archdruid Report - RSS" href="http://thearchdruidreport.blogspot.com/feeds/posts/default?alt=rss" />
+#   <link rel="service.post" type="application/atom+xml" title="The Archdruid Report - Atom" href="https://www.blogger.com/feeds/27481991/posts/default" />
+#   <link rel="alternate" type="application/atom+xml" title="The Archdruid Report - Atom" href="http://thearchdruidreport.blogspot.com/feeds/1891285484434881454/comments/default" />
