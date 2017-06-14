@@ -1,0 +1,69 @@
+#comments-block .cmt {
+    padding-left: 20px;
+    margin-top: 0.5em;
+}
+
+.avt {
+    position: absolute;
+    left: 0;
+}
+
+.avtb {
+    position: absolute;
+    left: 0;
+}
+
+.avt:before {
+    content: "";
+    position: absolute;
+    left: -45px;
+    width: 35px;
+    height: 35px;
+    background-repeat:no-repeat;
+    background-position:center center;
+    background-size: contain;
+    border: 1px solid transparent;
+}
+
+.avtb:before {
+    content: "";
+    position: absolute;
+    left: -45px;
+    width: 35px;
+    height: 35px;
+    background-repeat:no-repeat;
+    background-position: center center;
+    background-size: contain;
+    border: 1px solid #ccc;
+}
+
+.avt:after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 3px;
+    width: 10px;
+    height: 9px;
+    background: url(icon-comment-left-6893ba.gif) no-repeat;
+}
+
+.avtb:after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 3px;
+    width: 10px;
+    height: 9px;
+    background: url(icon-comment-left-6893ba.gif) no-repeat;
+}
+
+#comments-block b {
+    font-weight: bold;
+}
+
+#comments-block a[title="comment permalink"]:link { color: #ced; }
+#comments-block a[title="comment permalink"]:visited { color: #779988; }
+
+span.arc_tog {
+    font-family: Arial,sans-serif;
+}
