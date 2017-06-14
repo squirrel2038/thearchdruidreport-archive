@@ -124,7 +124,7 @@ def _crawl_mobile_posts(apply_, flush):
         apply_(_crawl_mobile_post, (p.url + "?m=1",))
 
 
-def _crawl_comments_feed(url):
+def _download_comments_feed(url):
     print("Crawling %s Atom comments feed..." % url)
     doc = _page(url + "?m=1")
     post_id = doc.find("meta", itemprop="postId").attrs["content"]
@@ -132,26 +132,45 @@ def _crawl_comments_feed(url):
     # Get both the JSON version and the Atom XML version.  Make sure they parse.
     ET.fromstring(  web_cache.get(atom_feed + "?alt=atom&v=2&orderby=published&reverse=false&max-results=1000"))
     js = json.loads(web_cache.get(atom_feed + "?alt=json&v=2&orderby=published&reverse=false&max-results=1000").decode("utf8"))
+    # These avatar images are special, because they're full-size.  Images
+    # sourced from Blogger's HTML files are usually (but not always!) shrunk
+    # to under 35x35.  Maybe it'd be nice to downlod these full-size images and
+    # provide sharper avatars for retina displays, but I think it'd make the
+    # web_cache much bigger.  Leave them out, at least for now.
+    if False:
+        for comment in js["feed"]["entry"]:
+            (author,) = comment["author"]
+            avatar = author["gd$image"]
+            int(avatar["width"])
+            int(avatar["height"])
+            try:
+                img = _pil_image(avatar["src"])
+            except:
+                print("WARNING: Bad avatar URL: %s" % avatar["src"])
 
-    for comment in js["feed"]["entry"]:
-        (author,) = comment["author"]
-        avatar = author["gd$image"]
-        int(avatar["width"])
-        int(avatar["height"])
-        img = _pil_image(avatar["src"])
-        print("AVATAR", img.size, avatar["src"])
 
-
-def _crawl_comments_feeds(apply_):
+def _download_comments_feeds(apply_):
     for p in generate_pages.load_posts():
-        apply_(_crawl_comments_feed, (p.url,))
+        apply_(_download_comments_feed, (p.url,))
+
+
+def _download_posts_bare():
+    count = 0
+    for start in range(1, 600, 100):
+        ET.fromstring(  web_cache.get("https://thearchdruidreport.blogspot.com/feeds/posts/default?alt=atom&start-index=%d&max-results=100" % start).decode("utf8"))
+        js = json.loads(web_cache.get("https://thearchdruidreport.blogspot.com/feeds/posts/default?alt=json&start-index=%d&max-results=100" % start).decode("utf8"))
+        for entry in js["feed"]["entry"]:
+            count += 1
+            print(entry["title"]["$t"])
+    assert count == len(generate_pages.load_posts())
 
 
 def _main(apply_, flush):
     _fetch_year_month_queries()
     _crawl_mobile_post_listings(apply_, flush)
     _crawl_mobile_posts(apply_, flush)
-    _crawl_comments_feeds(apply_)
+    _download_comments_feeds(apply_)
+    _download_posts_bare()
 
 
 if __name__ == "__main__":
