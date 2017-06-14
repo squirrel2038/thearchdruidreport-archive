@@ -82,7 +82,7 @@ characters, no trailing/following periods).
 Unix (Linux, macOS, BashOnWindows, or Cygwin):
 
  * Satisfy dependencies above.  (Make sure `python3`, `node`, `npm`, and
-   `guetzli` are in your PATH.  Install the PIP packages and NPMpackages.)
+   `guetzli` are in your PATH.  Install the PIP packages and NPM packages.)
 
  * Run `make-archive.sh`:
 
