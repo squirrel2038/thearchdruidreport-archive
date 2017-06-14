@@ -21,7 +21,7 @@ def set_fs_lock(lock):
 
 
 _scheme_re = re.compile(r"^(?:file|http|https):")
-_bad_url_re = re.compile(r"[^a-z0-9\~\-\`\!\@\#\$\%\&\(\)\_\+\=\{\}\[\]\;\'\,\.]+")
+_bad_url_re = re.compile(r"[^a-z0-9\~\-\`\!\@\#\$\%\&\(\)\_\+\=\{\}\[\]\;\,\.]+")
 def _canonbase(url):
     # Record the hash for the original unsanitized URL.
     hashstr = urlhash(url)
