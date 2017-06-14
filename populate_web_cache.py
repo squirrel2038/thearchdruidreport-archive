@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 from bs4 import BeautifulSoup
+import PIL.Image
 import json
+import io
 import posixpath
 import re
 import sys
 import threading
 import time
 import urllib.parse
+import xml.etree.ElementTree as ET
 
 import parallel
 import web_cache
@@ -14,6 +17,7 @@ import generate_pages
 
 
 _page_cache = {}
+_pil_image_cache = {}
 
 
 def _page(url):
@@ -21,6 +25,13 @@ def _page(url):
     if url not in _page_cache:
         _page_cache[url] = BeautifulSoup(web_cache.get(url), "lxml")
     return _page_cache[url]
+
+
+def _pil_image(url):
+    global _pil_image_cache
+    if url not in _pil_image_cache:
+        _pil_image_cache[url] = PIL.Image.open(io.BytesIO(web_cache.get(url)))
+    return _pil_image_cache[url]
 
 
 def _fetch_year_month_queries():
@@ -113,10 +124,34 @@ def _crawl_mobile_posts(apply_, flush):
         apply_(_crawl_mobile_post, (p.url + "?m=1",))
 
 
+def _crawl_comments_feed(url):
+    print("Crawling %s Atom comments feed..." % url)
+    doc = _page(url + "?m=1")
+    post_id = doc.find("meta", itemprop="postId").attrs["content"]
+    atom_feed = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default" % post_id
+    # Get both the JSON version and the Atom XML version.  Make sure they parse.
+    ET.fromstring(  web_cache.get(atom_feed + "?alt=atom&v=2&orderby=published&reverse=false&max-results=1000"))
+    js = json.loads(web_cache.get(atom_feed + "?alt=json&v=2&orderby=published&reverse=false&max-results=1000").decode("utf8"))
+
+    for comment in js["feed"]["entry"]:
+        (author,) = comment["author"]
+        avatar = author["gd$image"]
+        int(avatar["width"])
+        int(avatar["height"])
+        img = _pil_image(avatar["src"])
+        print("AVATAR", img.size, avatar["src"])
+
+
+def _crawl_comments_feeds(apply_):
+    for p in generate_pages.load_posts():
+        apply_(_crawl_comments_feed, (p.url,))
+
+
 def _main(apply_, flush):
     _fetch_year_month_queries()
     _crawl_mobile_post_listings(apply_, flush)
     _crawl_mobile_posts(apply_, flush)
+    _crawl_comments_feeds(apply_)
 
 
 if __name__ == "__main__":
@@ -124,4 +159,14 @@ if __name__ == "__main__":
 
 
 # Use something like this on mobile to request comments.
-# x = requests.get('https://thearchdruidreport.blogspot.com/feeds/739164683723753251/comments/default?alt=json&orderby=published&reverse=false&max-results=1000').json
+# x = requests.get('https://thearchdruidreport.blogspot.com/feeds/739164683723753251/comments/default?alt=json&v=2&orderby=published&reverse=false&max-results=1000').json
+
+
+
+
+# This page has a reply, 125 comments
+# http://thearchdruidreport.blogspot.com/2017/03/the-magic-lantern-show.html?m=1
+# <link rel="alternate" type="application/atom+xml" title="The Archdruid Report - Atom" href="http://thearchdruidreport.blogspot.com/feeds/posts/default" />
+# <link rel="alternate" type="application/rss+xml" title="The Archdruid Report - RSS" href="http://thearchdruidreport.blogspot.com/feeds/posts/default?alt=rss" />
+# <link rel="service.post" type="application/atom+xml" title="The Archdruid Report - Atom" href="https://www.blogger.com/feeds/27481991/posts/default" />
+# <link rel="alternate" type="application/atom+xml" title="The Archdruid Report - Atom" href="http://thearchdruidreport.blogspot.com/feeds/1891285484434881454/comments/default" />
