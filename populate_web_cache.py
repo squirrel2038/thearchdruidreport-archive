@@ -20,12 +20,6 @@ def _page(url):
         _page_cache[url] = BeautifulSoup(web_cache.get(url), "lxml")
     return _page_cache[url]
 
-def _generate_posts():
-    for p in generate_pages.load_posts():
-        if not web_cache.has(p.url):
-            web_cache.get(p.url)
-            generate_pages.generate_single_post(p.url)
-
 def _fetch_year_month_queries():
     for year in range(2006, 2018):
         web_cache.get("https://thearchdruidreport.blogspot.com/%04d/" % year)
@@ -98,7 +92,6 @@ def _crawl_mobile_posts():
         _fetch_page_resources(p.url + "?m=1")
 
 def main():
-    _generate_posts()
     _fetch_year_month_queries()
     _crawl_mobile_post_listings()
     _crawl_mobile_posts()
