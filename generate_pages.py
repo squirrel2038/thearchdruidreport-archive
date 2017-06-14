@@ -34,7 +34,7 @@ _intern_image_cache = {}
 _output_image_lock = parallel_locking.make_lock("output_image_lock")
 _image_compressor = None
 
-OUTPUT_DIRECTORY = "the-archdruid-report"
+OUTPUT_DIRECTORY = "thearchdruidreport-archive"
 
 IMAGE_TYPE_NORMAL = "normal"
 IMAGE_TYPE_RESOURCE = "resource"

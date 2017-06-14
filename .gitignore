@@ -1,10 +1,10 @@
 /plain_web_cache
 /img_cache
 /web_cache
-/web_cache.tar.xz
+/web_cache.7z
 /out
-/the-archdruid-report
-/the-archdruid-report.tar.xz
+/thearchdruidreport-archive
+/thearchdruidreport-archive.7z
 /node_modules
 __pycache__
 *.pyc

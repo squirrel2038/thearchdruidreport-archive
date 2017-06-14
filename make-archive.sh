@@ -2,10 +2,10 @@
 set -e
 
 ./generate_posts_json.py
-./generate_pages.py
 ./populate_web_cache.py
+./generate_pages.py
 
-for name in web_cache the-archdruid-report; do
-    rm -f $name.tar.xz
-    XZ_OPT='-v9' tar cfJ $name.tar.xz --owner=0 --group=0 $name
+for name in web_cache thearchdruidreport-archive; do
+    rm -f $name.7z
+    7z a -mx=9 $name.tar.xz $name
 done

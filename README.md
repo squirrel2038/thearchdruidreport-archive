@@ -1,4 +1,4 @@
-# archive-archdruid-report
+# thearchdruidreport-archive
 
 This repository contains a Python program that downloads the Archdruid Report
 blog, currently hosted at https://thearchdruidreport.blogspot.com, and
@@ -6,7 +6,7 @@ generates a read-only static version of the site.
 
 ## Summary
 
-The archiver currently produces a directory, `the-archdruid-report`,
+The archiver currently produces a directory, `thearchdruidreport-archive`,
 containing:
 
  - One HTML page for each post containing all comments consolidated on
@@ -63,7 +63,7 @@ node.js v6.11.0, the LTS release as of this writing.  Ensure that `node` and
 `npm` are in your PATH, then run:
 
 ```
-cd archive-archdruid-report
+cd thearchdruidreport-archive
 npm install
 ```
 
@@ -87,18 +87,18 @@ Unix (Linux, macOS, BashOnWindows, or Cygwin):
  * Run `make-archive.sh`:
 
    ```
-   cd archive-archdruid-report
+   cd thearchdruidreport-archive
    ./make-archive.sh
    ```
 
 Windows:
 
- * Install Python 3, node.js, and the PIP/NPM packages above, then imitate
-   `make_archive.sh`.  Something like this ought to work:
+ * Install Python 3, node.js, guetzli, and the PIP/NPM packages above, then
+   imitate `make_archive.sh`.  Something like this ought to work:
 
    ```
-   cd archive-archdruid-report
+   cd thearchdruidreport-archive
    C:\<path-to-python3>\python.exe generate_posts_json.py
-   C:\<path-to-python3>\python.exe generate_pages.py
    C:\<path-to-python3>\python.exe populate_web_cache.py
+   C:\<path-to-python3>\python.exe generate_pages.py
    ```
