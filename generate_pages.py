@@ -12,8 +12,6 @@ import io
 import hashlib
 import html
 import json
-import multiprocessing
-import multiprocessing.managers
 import os
 import posixpath
 import re
@@ -1193,7 +1191,7 @@ def _small_test_run(apply_, flush):
     _generate_avt_css()
 
 
-def main(apply_, flush):
+def _main(apply_, flush):
     #_gen_resources()
     #generate_redirects()
     # for p in load_posts()[::-1]:
@@ -1210,9 +1208,8 @@ def main(apply_, flush):
     #flush()
     #_generate_avt_css()
     _generate_everything(apply_, flush)
-    #_generate_everything(apply_, flush)
 
 
 if __name__ == "__main__":
     _image_compressor = parallel.init_image_compressor()
-    parallel.run_main(main)
+    parallel.run_main(_main)

@@ -8,10 +8,13 @@ import threading
 import time
 import urllib.parse
 
+import parallel
 import web_cache
 import generate_pages
 
+
 _page_cache = {}
+
 
 def _page(url):
     global _page_cache
@@ -19,11 +22,13 @@ def _page(url):
         _page_cache[url] = BeautifulSoup(web_cache.get(url), "lxml")
     return _page_cache[url]
 
+
 def _fetch_year_month_queries():
     for year in range(2006, 2018):
         web_cache.get("https://thearchdruidreport.blogspot.com/%04d/" % year)
         for month in range(1, 13):
             web_cache.get("https://thearchdruidreport.blogspot.com/%04d/%02d/" % (year, month))
+
 
 def _fetch_stylesheet_resources(css, base_url):
     i = 0
@@ -44,6 +49,7 @@ def _fetch_stylesheet_resources(css, base_url):
             url = urllib.parse.urljoin(base_url, url)
             web_cache.get(url)
         i = m.end()
+
 
 def _fetch_page_resources(url):
     doc = _page(url)
@@ -70,33 +76,42 @@ def _fetch_page_resources(url):
         assert style.contents[0].name is None
         _fetch_stylesheet_resources(str(style.contents[0].string), url)
 
-def _crawl_mobile_post_listings():
+
+def _crawl_mobile_post_listings(apply_, flush):
+    print("Crawling mobile post listings...")
     url = "https://thearchdruidreport.blogspot.com/?m=1"
     while url is not None:
-        print("Crawling %s ..." % url)
-        sys.stdout.flush()
-        _fetch_page_resources(url)
         doc = _page(url)
+        apply_(_fetch_page_resources, (url,))
         next_anchor = doc.select("a.blog-pager-older-link")
         if len(next_anchor) == 0:
             url = None
         else:
             (next_anchor,) = next_anchor
             url = next_anchor.attrs["href"]
+    flush()
 
-def _crawl_mobile_posts():
+
+def _crawl_mobile_post(url):
+    print("Crawling %s ..." % url)
+    sys.stdout.flush()
+    _fetch_page_resources(url)
+
+
+def _crawl_mobile_posts(apply_, flush):
     for p in generate_pages.load_posts():
-        print("Crawling %s ..." % p.url)
-        sys.stdout.flush()
-        _fetch_page_resources(p.url + "?m=1")
+        apply_(_crawl_mobile_post, (p.url + "?m=1",))
 
-def main():
+
+def _main(apply_, flush):
     _fetch_year_month_queries()
-    _crawl_mobile_post_listings()
-    _crawl_mobile_posts()
+    _crawl_mobile_post_listings(apply_, flush)
+    _crawl_mobile_posts(apply_, flush)
+
 
 if __name__ == "__main__":
-    main()
+    parallel.run_main(_main)
+
 
 # Use something like this on mobile to request comments.
 # x = requests.get('https://thearchdruidreport.blogspot.com/feeds/739164683723753251/comments/default?alt=json&orderby=published&reverse=false&max-results=1000').json
