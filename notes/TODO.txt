@@ -1,0 +1,2 @@
+Ensure that all comments pages are archived in Wayback Machine, if it can be automated.
+Consider capturing the blogger white-background desktop comments pages too?
