@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import urllib.parse
 import urllib.request
 import image_compressor
 
@@ -1064,9 +1065,9 @@ def _intern_css_images(css, base_url):
     ret = []
     i = 0
     p1 = re.compile(r"url\(")
-    p2 = re.compile(r"url\(\"([^\+\%\&()\\\"\']+)\"\)")
-    p3 = re.compile(r"url\(\'([^\+\%\&()\\\"\']+)\'\)")
-    p4 = re.compile(r"url\(([^\+\%\&()\\\"\']+)\)")
+    p2 = re.compile(r"url\(\"([^\%\&()\\\"\']+)\"\)")
+    p3 = re.compile(r"url\(\'([^\%\&()\\\"\']+)\'\)")
+    p4 = re.compile(r"url\(([^\%\&()\\\"\']+)\)")
     while True:
         s = p1.search(css, i)
         if s is None:
@@ -1079,10 +1080,7 @@ def _intern_css_images(css, base_url):
         if url.startswith("data:"):
             pass
         else:
-            if url.startswith("//"):
-                url = "https:" + url
-            elif url.startswith("/"):
-                url = re.match(r"(https?://[^/]+)/", base_url).group(1) + url
+            url = urllib.parse.urljoin(base_url, url)
             path = _intern_image(url, IMAGE_TYPE_RESOURCE)
             if not path:
                 raise RuntimeError("ERROR: _intern_css_images: %s" % url)
