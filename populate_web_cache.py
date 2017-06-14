@@ -100,6 +100,7 @@ def _fetch_page_resources(url):
 
 def _crawl_mobile_post_listings(apply_, flush):
     print("Crawling mobile post listings...")
+    sys.stdout.flush()
     url = "https://thearchdruidreport.blogspot.com/?m=1"
     while url is not None:
         doc = _page(url)
@@ -122,6 +123,7 @@ def _crawl_mobile_post(url):
 def _crawl_mobile_posts(apply_, flush):
     for p in generate_pages.load_posts():
         apply_(_crawl_mobile_post, (p.url + "?m=1",))
+    flush()
 
 
 def _download_comments_feed(url):
@@ -149,9 +151,10 @@ def _download_comments_feed(url):
                 print("WARNING: Bad avatar URL: %s" % avatar["src"])
 
 
-def _download_comments_feeds(apply_):
+def _download_comments_feeds(apply_, flush):
     for p in generate_pages.load_posts():
         apply_(_download_comments_feed, (p.url,))
+    flush()
 
 
 def _download_posts_bare():
@@ -181,7 +184,7 @@ def _main(apply_, flush):
     _fetch_year_month_queries()
     _crawl_mobile_post_listings(apply_, flush)
     _crawl_mobile_posts(apply_, flush)
-    _download_comments_feeds(apply_)
+    _download_comments_feeds(apply_, flush)
     _download_posts_bare()
 
 
