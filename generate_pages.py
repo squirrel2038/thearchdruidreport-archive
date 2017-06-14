@@ -175,7 +175,9 @@ def load_posts():
     posts_json = json.loads(util.get_file_text("posts.json"))
     for post in posts_json:
         e = Post()
+        e.postid = post["postid"]
         e.title = post["title"]
+        e.title_condensed = post["title_condensed"]
         e.url = post["url"]
         e.year, e.month, e.page = parse_tar_url(e.url)
         ret.append(e)
@@ -259,7 +261,7 @@ def _gen_blog_archive(cur_year, cur_month):
         parent = months[(p.year, p.month)]
         parent.append(_soup('<li><a href="%s">%s</a></li>' % (
             relurl_path(p.year, p.month, p.page),
-            html.escape(p.title, False)
+            html.escape(p.title_condensed, False)
         ), "li"))
 
     return ret
@@ -1054,7 +1056,7 @@ def _generate_posts_js(resources_path):
         for j, post in enumerate([p for p in all_posts if (p.year, p.month) == (year, month)]):
             if j != 0:
                 lines.append(",")
-            lines.append('\n[%s,%s]' % (json.dumps(html.escape(post.title, False)), json.dumps(post.page)))
+            lines.append('\n[%s,%s]' % (json.dumps(html.escape(post.title_condensed, False)), json.dumps(post.page)))
         lines.append("\n]")
     lines.append("\n};\n")
     util.set_file_text(os.path.join(resources_path, "posts.js"), "".join(lines))
