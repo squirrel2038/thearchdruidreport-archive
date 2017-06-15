@@ -16,7 +16,7 @@ ARCHIVES="$ARCHIVES web_cache.tar.xz"
 find thearchdruidreport-archive -type f | sort > dist/thearchdruidreport-archive.tar.xz.list
 ./list_web_cache_files.py web_cache            > dist/web_cache.tar.xz.list
 
-for name in $ARCHIVES
+for name in $ARCHIVES; do
     # The tar on macOS doesn't support -a, so specify -J for xz.
     XZ_OPT='-v9' tar cfJ dist/$name -T dist/$name.list
 done
