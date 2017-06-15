@@ -50,7 +50,11 @@ away.
 
 ### Dependencies
 
-This program uses Python 3 and a number of Python 3 packages:
+This program uses Python 3 and a number of Python 3 packages.  On Ubuntu:
+```
+sudo apt-get install python3-bs4 python3-lxml python3-requests python3-pil
+```
+Alternatively, use `pip3` to install the packages:
 ```
 pip3 install beautifulsoup4
 pip3 install lxml
