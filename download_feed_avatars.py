@@ -2,7 +2,9 @@
 import PIL.Image
 import io
 import json
+import re
 import requests
+import sys
 
 import post_list
 import web_cache
@@ -36,11 +38,33 @@ def _fetch_avatar_urls():
     urls = open("avatar_urls", "r").read().splitlines()
     for i, url in enumerate(urls):
         print("[%d/%d] fetching %s ..." % (i + 1, len(urls), url))
+
+        secure_url   = re.sub(r"([a-z]+:)?//", "https://", url)
+        insecure_url = re.sub(r"([a-z]+:)?//", "http://", url)
+
+        secure_bytes = None
+        secure_image = None
+        insecure_bytes = None
+        insecure_image = None
+
         try:
-            img = PIL.Image.open(io.BytesIO(web_cache.get(url)))
+            secure_bytes = web_cache.get(secure_url)
+            secure_image = PIL.Image.open(io.BytesIO(secure_bytes))
         except:
+            pass
+
+        if secure_image is None or url.startswith("http://"):
+            try:
+                insecure_bytes = web_cache.get(insecure_url)
+                insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
+            except:
+                pass
+
+        if not secure_image and not insecure_image:
             print("WARNING: Bad avatar URL: %s" % url)
 
 
-#_make_avatar_url_list()
-_fetch_avatar_urls()
+if sys.argv[1] == "list":
+    _make_avatar_url_list()
+if sys.argv[1] == "fetch":
+    _fetch_avatar_urls()

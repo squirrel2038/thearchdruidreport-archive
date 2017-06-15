@@ -570,6 +570,7 @@ def _friendly_image_name(url):
 
 def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi=False):
     global _intern_image_cache
+    url = web_cache.canonurl(url)
 
     memo_key = (url, image_type, html_size, hidpi)
     if memo_key in _intern_image_cache:
@@ -590,7 +591,17 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi
 
     try:
         img_bytes = web_cache.get(url)
-    except web_cache.ResourceNotAvailable:
+    except web_cache.ResourceNotAvailable as exc:
+        if (url.startswith("https://")) and "SSLError" in exc.reason:
+            # Frequently SSL-based sites have bad certificates.  I think(?)
+            # it's safe enough to downgrade to the HTTP site.  Call the
+            # interning function recursively.
+            insecure_url = re.sub(r"^https://", "http://", url)
+            insecure_job = _intern_image_async(insecure_url, image_type, html_size, hidpi)
+            if insecure_job is not None:
+                print("NOTICE: downgrading HTTPS -> HTTP succeeded: %s" % insecure_url)
+                sys.stdout.flush()
+            return insecure_job
         return None
 
     extension = util.image_extension(img_bytes)
@@ -654,6 +665,14 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi
     if img.mode in ["L", "LA", "RGBA"] or "transparency" in img.info:
         guetzli_quality = 0
     force_resampling = resample_size and image_type == IMAGE_TYPE_AVATAR
+
+    if url.startswith("http://"):
+        # Force resampling on images from insecure sites.  If an image file is
+        # malicious, perhaps this will reduce the exposure to it -- the Pillow
+        # library will be the only code directly reading it.
+        resample_size = resample_size or img.size
+        force_resampling = True
+
     job = (name, url, resample_size, guetzli_quality, force_resampling)
     is_job_cached = _image_compressor.has_cached(job)
     _image_compressor.start_compress_async(job)

@@ -46,10 +46,10 @@ def _canonbase(url):
 
 
 def urlhash(url):
-    return hashlib.sha256(_canonurl(url).encode("utf8")).hexdigest()[0:40]
+    return hashlib.sha256(canonurl(url).encode("utf8")).hexdigest()[0:40]
 
 
-def _canonurl(url):
+def canonurl(url):
     if url.startswith("//"):
         return "https:" + url
     elif url.lower().startswith("http://"):
@@ -64,16 +64,17 @@ def _canonurl(url):
 def has(url):
     assert _lock
     with _lock:
-        return os.path.exists(_canonbase(_canonurl(url)) + ".url")
+        return os.path.exists(_canonbase(canonurl(url)) + ".url")
 
 class ResourceNotAvailable(Exception):
-    pass
+    def __init__(self, reason):
+        self.reason = reason
 
 
 def get(url):
     assert _lock
     with _lock:
-        url = _canonurl(url)
+        url = canonurl(url)
         path = _canonbase(url)
 
         if not os.path.exists(path + ".url") or not (os.path.exists(path + ".data") or os.path.exists(path + ".fail")):
@@ -106,7 +107,7 @@ def get(url):
             with open(path + ".data", "rb") as fp:
                 return fp.read()
         if has_fail:
-            raise ResourceNotAvailable()
+            raise ResourceNotAvailable(util.get_file_text(path + ".fail"))
         raise RuntimeError("ERROR: internal error on URL " + url)
 
 
