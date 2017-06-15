@@ -59,6 +59,12 @@ def _soup(text, tag):
         ret = getattr(ret, tag)
     return ret
 
+def _flush_caches():
+    global _page_cache
+    global _pil_image_cache
+    _page_cache.clear()
+    _pil_image_cache.clear()
+
 def _copy_soup(e):
     assert e.name is not None
     return _soup(str(e), e.name)
@@ -943,6 +949,7 @@ def _generate_common(page_url, url_to_root):
 def generate_single_post(page_url):
     print("Generating page for %s ..." % page_url)
     sys.stdout.flush()
+    _flush_caches()
 
     doc = _page(page_url)
     out = _generate_common(page_url, "../..")
@@ -960,6 +967,7 @@ def generate_single_post(page_url):
 def generate_month(year, month):
     print("Generating month %04d/%02d ..." % (year, month))
     sys.stdout.flush()
+    _flush_caches()
 
     # Find the posts to include and to link to.
     all_posts = load_posts()
