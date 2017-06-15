@@ -947,21 +947,25 @@ def _generate_common(page_url, url_to_root):
 
 
 def generate_single_post(page_url):
-    print("Generating page for %s ..." % page_url)
-    sys.stdout.flush()
-    _flush_caches()
+    try:
+        print("Generating page for %s ..." % page_url)
+        sys.stdout.flush()
+        _flush_caches()
 
-    doc = _page(page_url)
-    out = _generate_common(page_url, "../..")
-    post_parent = out.select_one(".blog-posts")
-    post_parent.append(_gen_blog_post(page_url, True, False))
+        doc = _page(page_url)
+        out = _generate_common(page_url, "../..")
+        post_parent = out.select_one(".blog-posts")
+        post_parent.append(_gen_blog_post(page_url, True, False))
 
-    # Page navigation
-    out.select_one(".blog-pager").replace_with(_copy_soup(doc.select_one('.blog-pager')))
+        # Page navigation
+        out.select_one(".blog-pager").replace_with(_copy_soup(doc.select_one('.blog-pager')))
 
-    out.title.replace_with(_copy_soup(doc.title))
-    _fixup_images_and_hyperlinks(out, "../..")
-    _write_page(out, OUTPUT_DIRECTORY + ("/%04d/%02d/%s" % parse_tar_url(page_url)))
+        out.title.replace_with(_copy_soup(doc.title))
+        _fixup_images_and_hyperlinks(out, "../..")
+        _write_page(out, OUTPUT_DIRECTORY + ("/%04d/%02d/%s" % parse_tar_url(page_url)))
+    except:
+        print("ERROR: Python exception raised while generating page for %s" % page_url)
+        raise
 
 
 def generate_month(year, month):
