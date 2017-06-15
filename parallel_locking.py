@@ -19,6 +19,6 @@ def make_lock(name):
     else:
         # Help to guard against children creating the same lock repeatedly.
         # Each lock should only be created once per run.
-        print("DEBUG: creating multiprocessing.Lock for %s" % name)
-        sys.stdout.flush()
+        sys.stderr.write("DEBUG: creating multiprocessing.Lock for %s\n" % name)
+        sys.stderr.flush()
         return multiprocessing.Lock()

@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 
 import parallel
 import web_cache
-import generate_pages
+import post_list
 
 
 _page_cache = {}
@@ -121,7 +121,7 @@ def _crawl_mobile_post(url):
 
 
 def _crawl_mobile_posts(apply_, flush):
-    for p in generate_pages.load_posts():
+    for p in post_list.load_posts():
         apply_(_crawl_mobile_post, (p.url + "?m=1",))
     flush()
 
@@ -152,7 +152,7 @@ def _download_comments_feed(url):
 
 
 def _download_comments_feeds(apply_, flush):
-    for p in generate_pages.load_posts():
+    for p in post_list.load_posts():
         apply_(_download_comments_feed, (p.url,))
     flush()
 
@@ -164,7 +164,7 @@ def _download_posts_bare():
         js = json.loads(web_cache.get("https://thearchdruidreport.blogspot.com/feeds/posts/default?alt=json&start-index=%d&max-results=100" % start).decode("utf8"))
         for entry in js["feed"]["entry"]:
             count += 1
-    assert count == len(generate_pages.load_posts())
+    assert count == len(post_list.load_posts())
 
 
 def _main(apply_, flush):
