@@ -82,7 +82,7 @@ def get(url):
             sys.stdout.flush()
             try:
                 r = requests.get(url, timeout=60.0)
-                if r.status_code not in [200, 403, 404, 410, 500, 504]:
+                if r.status_code not in [200, 403, 404, 410, 500, 503, 504]:
                     raise RuntimeError("ERROR: bad status code: " + str(r.status_code))
                 if r.status_code == 200:
                     util.set_file_data(path + ".data", r.content)
