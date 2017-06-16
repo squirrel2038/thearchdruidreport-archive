@@ -11,14 +11,20 @@ import threading
 import util
 import parallel_locking
 
-WEB_CACHE_DIR = os.path.dirname(__file__) + "/web_cache"
+NO_ENTRY = 0
+ENTRY_VALID = 1
+ENTRY_INVALID = 2
+
+_cache_dir = os.path.dirname(__file__) + "/web_cache"
+_cache_dir_under = None
 POST_REQUEST_SLEEP_TIME = 2.0
 _lock = parallel_locking.make_lock("web_cache")
 
 
+
 _scheme_re = re.compile(r"^(?:file|http|https):")
 _bad_url_re = re.compile(r"[^a-z0-9\~\-\`\!\@\#\$\%\&\(\)\_\+\=\{\}\[\]\;\,\.]+")
-def _canonbase(url):
+def _canonbase(cache_dir, url):
     # Record the hash for the original unsanitized URL.
     hashstr = urlhash(url)
 
@@ -40,9 +46,19 @@ def _canonbase(url):
     url = url[0:500]
     url = ".".join(url.replace(".", " ").split())
 
-    ret = os.path.join(WEB_CACHE_DIR, url, hashstr)
+    ret = os.path.join(cache_dir, url, hashstr)
     ret = util.abspath(ret)
     return ret
+
+
+def set_cache_dir(path, under_path=None):
+    # Use `path` as the cache directory.  If `under_path` is non-None, then
+    # files will be copied from it to the primary cache directory when they're
+    # requested.
+    global _cache_dir
+    global _cache_dir_under
+    _cache_dir = path
+    _cache_dir_under = under_path
 
 
 def urlhash(url):
@@ -61,54 +77,78 @@ def canonurl(url):
         raise RuntimeError("ERROR: invalid URL scheme: " + url)
 
 
-def has(url):
-    assert _lock
-    with _lock:
-        return os.path.exists(_canonbase(canonurl(url)) + ".url")
-
 class ResourceNotAvailable(Exception):
     def __init__(self, reason):
         self.reason = reason
+
+
+def _entry_state(cache_dir, url):
+    # Determine the state of the URL in the specified cache directory.
+    path = _canonbase(cache_dir, url)
+    has_url = os.path.exists(path + ".url")
+    has_data = os.path.exists(path + ".data")
+    has_fail = os.path.exists(path + ".fail")
+    if has_data and has_fail:
+        raise RuntimeError("ERROR: Both %(path)s.data and %(path)s.fail exist" % {"path": path})
+    if has_url:
+        assert util.get_file_text(path + ".url") == url
+        if has_data:
+            return ENTRY_VALID
+        if has_fail:
+            return ENTRY_INVALID
+    return NO_ENTRY
 
 
 def get(url):
     assert _lock
     with _lock:
         url = canonurl(url)
-        path = _canonbase(url)
+        path = _canonbase(_cache_dir, url)
 
-        if not os.path.exists(path + ".url") or not (os.path.exists(path + ".data") or os.path.exists(path + ".fail")):
-            print("requesting", url)
-            sys.stdout.flush()
-            try:
-                r = requests.get(url, timeout=60.0)
-                if r.status_code not in [200, 403, 404, 410, 429, 500, 503, 504]:
-                    raise RuntimeError("ERROR: bad status code: " + str(r.status_code))
-                if r.status_code == 200:
-                    util.set_file_data(path + ".data", r.content)
-                else:
-                    print("WARNING: %d error downloading URL: %s" % (r.status_code, url))
-                    sys.stdout.flush()
-                    util.set_file_text(path + ".fail", str(r.status_code) + "\n")
-            except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as err:
-                print("WARNING: Connection error downloading URL: %s\n  %s" % (url, repr(err)))
+        if _entry_state(_cache_dir, url) == NO_ENTRY:
+            under_state = NO_ENTRY
+            if _cache_dir_under is not None:
+                under_state = _entry_state(_cache_dir_under, url):
+                if under_state != NO_ENTRY:
+                    under_path = _canonbase(_cache_dir_under, url)
+                    print("copying request from %s: %s" % (_cache_dir_under, url))
+                    if under_state == ENTRY_VALID:
+                        util.set_file_data(path + ".data",      util.get_file_data(under_path + ".data"))
+                    elif under_state == ENTRY_INVALID:
+                        util.set_file_text(path + ".fail",      util.get_file_text(under_path + ".fail"))
+                    else:
+                        raise RuntimeError("ERROR: internal error on URL " + url + ": invalid under_state")
+                    util.set_file_text(path + ".timestamp",     util.get_file_text(under_path + ".timestamp"))
+                    util.set_file_text(path + ".url",           util.get_file_text(under_path + ".url"))
+
+            if under_state == NO_ENTRY:
+                print("requesting", url)
                 sys.stdout.flush()
-                util.set_file_text(path + ".fail", repr(err) + "\n")
-            util.set_file_text(path + ".timestamp", datetime.now().isoformat())
-            util.set_file_text(path + ".url", url)
-            time.sleep(POST_REQUEST_SLEEP_TIME)
+                try:
+                    r = requests.get(url, timeout=60.0)
+                    if r.status_code not in [200, 403, 404, 410, 429, 500, 503, 504]:
+                        raise RuntimeError("ERROR: bad status code: " + str(r.status_code))
+                    if r.status_code == 200:
+                        util.set_file_data(path + ".data", r.content)
+                    else:
+                        print("WARNING: %d error downloading URL: %s" % (r.status_code, url))
+                        sys.stdout.flush()
+                        util.set_file_text(path + ".fail", str(r.status_code) + "\n")
+                except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as err:
+                    print("WARNING: Connection error downloading URL: %s\n  %s" % (url, repr(err)))
+                    sys.stdout.flush()
+                    util.set_file_text(path + ".fail", repr(err) + "\n")
+                util.set_file_text(path + ".timestamp", datetime.now().isoformat())
+                util.set_file_text(path + ".url", url)
+                time.sleep(POST_REQUEST_SLEEP_TIME)
 
-        assert util.get_file_text(path + ".url") == url
-        has_data = os.path.exists(path + ".data")
-        has_fail = os.path.exists(path + ".fail")
-        if has_data and has_fail:
-            raise RuntimeError("ERROR: Both %(path)s.data and %(path)s.fail exist" % {"path": path})
-        if has_data:
-            with open(path + ".data", "rb") as fp:
-                return fp.read()
-        if has_fail:
+        state = _entry_state(_cache_dir, url)
+        if state == ENTRY_VALID:
+            return util.get_file_data(path + ".data")
+        elif state == ENTRY_INVALID:
             raise ResourceNotAvailable(util.get_file_text(path + ".fail"))
-        raise RuntimeError("ERROR: internal error on URL " + url)
+        else:
+            raise RuntimeError("ERROR: internal error on URL " + url + ": invalid state")
 
 
 if __name__ == "__main__":

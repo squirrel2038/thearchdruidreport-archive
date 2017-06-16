@@ -11,11 +11,6 @@ import util
 import web_cache
 
 
-# Split this file into two modules, because we need to move web_cache out of
-# the way between the two steps.  (We want to isolate the avatar HTTP requests
-# into its own archive.)
-
-
 def _make_avatar_url_list():
     seen = set()
     with open("avatar_urls", "wt") as fp:
@@ -36,6 +31,7 @@ def _make_avatar_url_list():
 
 
 def _fetch_avatar_urls():
+    web_cache.set_cache_dir("web_cache_feed_avatars", "web_cache")
     urls = open("avatar_urls", "r").read().splitlines()
     for i, url in enumerate(urls):
         print("[%d/%d] fetching %s ..." % (i + 1, len(urls), url))
