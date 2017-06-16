@@ -570,12 +570,14 @@ def _friendly_image_name(url):
 
 def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi=False):
     global _intern_image_cache
+
+    # Validate/fix parameters.
+    if url == "":
+        # This happens with the avatar icon on comment:
+        # https://thearchdruidreport.blogspot.com/2015/03/peak-meaninglessness.html?showComment=1425652426980#c1700234895902505359
+        print("WARNING: Skipping img with src=''")
+        return None
     url = web_cache.canonurl(url)
-
-    memo_key = (url, image_type, html_size, hidpi)
-    if memo_key in _intern_image_cache:
-        return AsyncImageResultCached(*_intern_image_cache[memo_key])
-
     if html_size is None or html_size == (None, None):
         html_size = None
     else:
@@ -583,11 +585,10 @@ def _intern_image_async(url, image_type=IMAGE_TYPE_NORMAL, html_size=None, hidpi
         # need to do implement something sensible here.
         html_size = (int(html_size[0]), int(html_size[1]))
 
-    if url == "":
-        # This happens with the avatar icon on comment:
-        # https://thearchdruidreport.blogspot.com/2015/03/peak-meaninglessness.html?showComment=1425652426980#c1700234895902505359
-        print("WARNING: Skipping img with src=''")
-        return None
+    # Check the cache.
+    memo_key = (url, image_type, html_size, hidpi)
+    if memo_key in _intern_image_cache:
+        return AsyncImageResultCached(*_intern_image_cache[memo_key])
 
     try:
         img_bytes = web_cache.get(url)
