@@ -23,13 +23,16 @@ ARCHIVES="$ARCHIVES web_cache$ADR_SUFFIX.tar.xz"
 ./generate_posts_json.py
 ./download_feed_avatars.py list
 ./populate_web_cache.py
+./download_feed_avatars.py fetch
 ./generate_pages.py
 
 if [ "$ADR_RETRY" != "" ]; then
     # Retry each failed web request a second time.
     echo "Removing web failed requests and regenerating..."
-    ./remove-web-cache-failures.sh
+    ./remove-web-cache-failures.sh web_cache
+    ./remove-web-cache-failures.sh web_cache_feed_avatars
     ./populate_web_cache.py
+    ./download_feed_avatars.py fetch
     ./generate_pages.py
 fi
 
@@ -42,4 +45,8 @@ for name in $ARCHIVES; do
     rm -f dist/$name.list
 done
 
-(cd dist && shasum -a256 $ARCHIVES) > dist/SHA256SUMS
+# Bundle up these extra things.
+tar cfJ dist/img_cache$ADR_SUFFIX.tar.xz img_cache
+tar cfJ dist/web_cache_feed_avatars$ADR_SUFFIX.tar.xz web_cache_feed_avatars
+
+(cd dist && shasum -a256 *.tar.xz) > dist/SHA256SUMS
