@@ -4,6 +4,7 @@
 /thearchdruidreport-archive
 /dist
 /node_modules
+/avatar_urls
 __pycache__
 *.pyc
 *.min.js
