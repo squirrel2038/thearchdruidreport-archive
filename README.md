@@ -88,7 +88,15 @@ Unix (Linux, macOS, BashOnWindows, or Cygwin):
  * Satisfy dependencies above.  (Make sure `python3`, `node`, `npm`, and
    `guetzli` are in your PATH.  Install the PIP packages and NPM packages.)
 
- * Run `make-archive.sh`:
+ * Run `./generate_pages.py` to generate just the ordinary site.
+
+   ```
+   cd thearchdruidreport-archive
+   ./generate_pages.py
+   ```
+
+ * Run `make-archive.sh` to generate the ordinary site and also download a copy
+   of any HTTP resource that might be useful later.
 
    ```
    cd thearchdruidreport-archive
