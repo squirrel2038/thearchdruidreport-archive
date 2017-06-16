@@ -108,7 +108,7 @@ def get(url):
         if _entry_state(_cache_dir, url) == NO_ENTRY:
             under_state = NO_ENTRY
             if _cache_dir_under is not None:
-                under_state = _entry_state(_cache_dir_under, url):
+                under_state = _entry_state(_cache_dir_under, url)
                 if under_state != NO_ENTRY:
                     under_path = _canonbase(_cache_dir_under, url)
                     print("copying request from %s: %s" % (_cache_dir_under, url))
