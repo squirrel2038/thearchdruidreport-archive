@@ -7,6 +7,7 @@ import requests
 import sys
 
 import post_list
+import util
 import web_cache
 
 
@@ -49,15 +50,17 @@ def _fetch_avatar_urls():
 
         try:
             secure_bytes = web_cache.get(secure_url)
-            secure_image = PIL.Image.open(io.BytesIO(secure_bytes))
-        except:
+            if util.image_extension(secure_bytes):
+                secure_image = PIL.Image.open(io.BytesIO(secure_bytes))
+        except web_cache.ResourceNotAvailable:
             pass
 
         if secure_image is None or url.startswith("http://"):
             try:
                 insecure_bytes = web_cache.get(insecure_url)
-                insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
-            except:
+                if util.image_extension(insecure_url):
+                    insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
+            except web_cache.ResourceNotAvailable:
                 pass
 
         if not secure_image and not insecure_image:
