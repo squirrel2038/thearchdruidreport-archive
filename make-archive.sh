@@ -20,6 +20,14 @@ ARCHIVES=
 ARCHIVES="$ARCHIVES thearchdruidreport-archive$ADR_SUFFIX.tar.xz"
 ARCHIVES="$ARCHIVES web_cache$ADR_SUFFIX.tar.xz"
 
+if [ "$ADR_RETRY" != "" ]; then
+    # Retry each failed web request on the first run.  If requests were copied
+    # from a previous run, doing the extra requests isn't too expensive.
+    echo "Removing failed web requests..."
+    [ -e web_cache ]              && ./remove-web-cache-failures.sh web_cache
+    [ -e web_cache_feed_avatars ] && ./remove-web-cache-failures.sh web_cache_feed_avatars
+fi
+
 ./generate_posts_json.py
 ./download_feed_avatars.py list
 ./populate_web_cache.py
@@ -28,7 +36,7 @@ ARCHIVES="$ARCHIVES web_cache$ADR_SUFFIX.tar.xz"
 
 if [ "$ADR_RETRY" != "" ]; then
     # Retry each failed web request a second time.
-    echo "Removing web failed requests and regenerating..."
+    echo "Removing failed web requests and regenerating..."
     ./remove-web-cache-failures.sh web_cache
     ./remove-web-cache-failures.sh web_cache_feed_avatars
     ./populate_web_cache.py
