@@ -278,7 +278,7 @@ MAIN_TEMPLATE = """<!DOCTYPE html>
                     <div id="header-inner">
                         <div class="titlewrapper">
                             <h1 class="title">
-                                <a href="https://thearchdruidreport.blogspot.com/">The Archdruid Report</a>
+                                <a href="https://thearchdruidreport.blogspot.com/">The Archdruid Report - Archive</a>
                             </h1>
                         </div>
                         <div class="descriptionwrapper">
@@ -309,6 +309,30 @@ MAIN_TEMPLATE = """<!DOCTYPE html>
         </div>
 
         <div id="sidebar-wrap">
+
+            <div id=sidebartop-wrap><div id=sidebartop-wrap2><div class="sidebar section" id=sidebartop>
+               <div class=widget>
+
+                  <h2 class=title>About This Archive</h2>
+
+                  This archive contains the posts and comments from John Michael Greer's blog,
+                  <i>The Archdruid Report</i>, from May 2006 to June 2017.<br><br>
+
+                  Follow Greer's current writing on his new blog,
+                  <a href="http://www.ecosophia.net/">www.ecosophia.net</a>,
+                  or on his Dreamwidth account,
+                  <a href="http://ecosophia.dreamwidth.org/">ecosophia.dreamwidth.org</a>.<br><br>
+
+                  The scripts used to produce this archive are hosted on
+                  <a href="https://github.com/squirrel2038/thearchdruidreport-archive">GitHub</a>.
+                  A downloadable copy of the archive is available on
+                  <a href="https://drive.google.com/drive/folders/0B8Qtw5WNgYf8X2JLckdIUmcxUTg?usp=sharing">Google Drive</a>.<br><br>
+
+                  Contact the archive creator at squirrel2038 at gmail.com.
+
+               </div>
+            </div></div></div>
+
             <div id="sidebarbottom-wrap1"><!-- TAG IS REPLACED --></div>
         </div>
 
