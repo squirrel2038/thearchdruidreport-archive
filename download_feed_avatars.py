@@ -12,8 +12,8 @@ import web_cache
 
 
 # Split this file into two modules, because we need to move web_cache out of
-# the way between the two steps.  (We want to isolate the avatar HTTP requests)
-# into its own thing.
+# the way between the two steps.  (We want to isolate the avatar HTTP requests
+# into its own archive.)
 
 
 def _make_avatar_url_list():
