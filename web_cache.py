@@ -81,7 +81,7 @@ def get(url):
             print("requesting", url)
             sys.stdout.flush()
             try:
-                r = requests.get(url)
+                r = requests.get(url, timeout=60.0)
                 if r.status_code not in [200, 403, 404, 410, 500, 504]:
                     raise RuntimeError("ERROR: bad status code: " + str(r.status_code))
                 if r.status_code == 200:
@@ -90,7 +90,7 @@ def get(url):
                     print("WARNING: %d error downloading URL: %s" % (r.status_code, url))
                     sys.stdout.flush()
                     util.set_file_text(path + ".fail", str(r.status_code) + "\n")
-            except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as err:
+            except (requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as err:
                 print("WARNING: Connection error downloading URL: %s\n  %s" % (url, repr(err)))
                 sys.stdout.flush()
                 util.set_file_text(path + ".fail", repr(err) + "\n")
