@@ -436,7 +436,7 @@ def _avatar_class_name_from_filename(path):
     return "a_" + m.group(1).replace("-", "_")
 
 
-def _gen_comments_div(comments):
+def _gen_comments_div(page_basename, comments):
     html = []
 
     html.append(" ".join("""
@@ -469,7 +469,8 @@ def _gen_comments_div(comments):
         if body.startswith("<p>") and body.endswith("</p>"):
             body = body[3:-4].strip()
         html.append(body)
-        html.append("""<br><br><a href="#%s" title="comment permalink">%s</a><br><br>""" % (c.id, c.timestamp))
+        html.append("""<br><br><a href="%s#%s" title="comment permalink">%s</a><br><br>""" %
+            (page_basename, c.id, c.timestamp))
         html.append("\n")
 
     html.append(" ".join("""
@@ -521,7 +522,8 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
 
     # Add comments.
     if include_comments:
-        date_outer.select_one(".comments").replace_with(_gen_comments_div(_get_comments(page_url)))
+        date_outer.select_one(".comments").replace_with(
+            _gen_comments_div(posixpath.basename(page_url), _get_comments(page_url)))
     else:
         date_outer.select_one(".comments").decompose()
 
@@ -927,7 +929,7 @@ def _fixup_images_and_hyperlinks(out, url_to_root):
             continue
 
         # Optimized comment permalink
-        if re.match(r"#c\d+$", href):
+        if re.match(r"[-_a-z0-9\.]*#c\d+$", href):
             continue
 
         # Anything else?
