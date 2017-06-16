@@ -54,7 +54,7 @@ def _fetch_avatar_urls():
         if secure_image is None or url.startswith("http://"):
             try:
                 insecure_bytes = web_cache.get(insecure_url)
-                if util.image_extension(insecure_url):
+                if util.image_extension(insecure_bytes):
                     insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
             except web_cache.ResourceNotAvailable:
                 pass
