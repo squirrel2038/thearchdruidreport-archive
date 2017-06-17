@@ -7,10 +7,6 @@ import image_compressor
 import parallel_locking
 
 
-# win32 has the multiprocessing module, but it's not clear to me how
-# to get the locks shared between all the workers, so use
-# single-threaded processing instead.  (Use UNIX for speed.)
-_is_single_threaded = sys.platform == "win32"
 _image_compressor = None
 
 
