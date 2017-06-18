@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import re
 import os
@@ -99,6 +99,32 @@ def _entry_state(cache_dir, url):
     return NO_ENTRY
 
 
+def parse_timestamp_str(stamp):
+    # In early versions of the archive, the timestamps were implicitly in the
+    # CDT -05:00 timezone.  We want to instead return a naive datetime in UTC.
+    if stamp.endswith("Z"):
+        ret = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+    else:
+        ret = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%S.%f")
+        ret += timedelta(hours=5)
+    return ret
+
+
+def timestamp_str(dtobj):
+    # Use native datetime objects in UTC.
+    assert dtobj.tzinfo is None
+    ret = dtobj.isoformat() + "Z"
+    assert parse_timestamp_str(ret) == dtobj # Make sure the string is valid.
+    return ret
+
+
+def read_timestamp_file(path):
+    return parse_timestamp_str(util.get_file_text(path).rstrip())
+
+def write_timestamp_file(path, stamp):
+    util.set_file_text(path, timestamp_str(stamp) + "\n")
+
+
 def get(url):
     assert _lock
     with _lock:
@@ -118,7 +144,7 @@ def get(url):
                         util.set_file_text(path + ".fail",      util.get_file_text(under_path + ".fail"))
                     else:
                         raise RuntimeError("ERROR: internal error on URL " + url + ": invalid under_state")
-                    util.set_file_text(path + ".timestamp",     util.get_file_text(under_path + ".timestamp"))
+                    write_timestamp_file(path + ".timestamp", read_timestamp_file(under_path + ".timestamp"))
                     util.set_file_text(path + ".url",           util.get_file_text(under_path + ".url"))
 
             if under_state == NO_ENTRY:
@@ -138,7 +164,7 @@ def get(url):
                     print("WARNING: Connection error downloading URL: %s\n  %s" % (url, repr(err)))
                     sys.stdout.flush()
                     util.set_file_text(path + ".fail", repr(err) + "\n")
-                util.set_file_text(path + ".timestamp", datetime.now().isoformat())
+                write_timestamp_file(path + ".timestamp", datetime.utcnow())
                 util.set_file_text(path + ".url", url)
                 time.sleep(POST_REQUEST_SLEEP_TIME)
 
