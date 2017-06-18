@@ -42,8 +42,16 @@ def image_compressor():
     return _image_compressor
 
 
+class _Result:
+    def __init__(self, result):
+        self._result = result
+
+    def get(self):
+        return self._result
+
+
 def _main_single(main):
-    main(apply_=(lambda func, args: func(*args)),
+    main(apply_=(lambda func, args: _Result(func(*args))),
          flush=(lambda: None))
 
 
