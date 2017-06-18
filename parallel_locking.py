@@ -15,7 +15,7 @@ def is_single_threaded():
 
 def make_lock(name):
     if _is_single_threaded:
-        return theading.Lock()
+        return threading.Lock()
     else:
         # Help to guard against children creating the same lock repeatedly.
         # Each lock should only be created once per run.

@@ -7,6 +7,7 @@ import image_compressor
 import parallel_locking
 
 
+_compressor_mgr = None
 _image_compressor = None
 
 
@@ -23,14 +24,16 @@ _ImageCompressorManager.register("ImageCompressor", image_compressor.ImageCompre
 def init_image_compressor():
     # This initialization must be delayed until all modules' locks have been
     # constructed.
+    global _compressor_mgr
     global _image_compressor
+    assert _compressor_mgr is None
     assert _image_compressor is None
     if parallel_locking.is_single_threaded():
         _image_compressor = image_compressor.SyncImageCompressor()
     else:
-        compressor_mgr = _ImageCompressorManager()
-        compressor_mgr.start()
-        _image_compressor = compressor_mgr.ImageCompressor()
+        _compressor_mgr = _ImageCompressorManager()
+        _compressor_mgr.start()
+        _image_compressor = _compressor_mgr.ImageCompressor()
     return _image_compressor
 
 
@@ -40,9 +43,6 @@ def image_compressor():
 
 
 def _main_single(main):
-    global _image_compressor
-    _image_compressor = image_compressor.SyncImageCompressor()
-
     main(apply_=(lambda func, args: func(*args)),
          flush=(lambda: None))
 
@@ -51,10 +51,6 @@ def _main_parallel(main):
     # We must have a "fork" start method so that locks are inherited.
     # Otherwise, each child will create its own independent locks, and there
     # will be no actual mutual exclusion.
-    global _image_compressor
-    compressor_mgr = _ImageCompressorManager()
-    compressor_mgr.start()
-    _image_compressor = compressor_mgr.ImageCompressor()
     assert multiprocessing.get_start_method() == "fork"
     with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
         tasks = []
