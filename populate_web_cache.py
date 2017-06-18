@@ -132,6 +132,7 @@ def _download_comments_feed(url):
     post_id = doc.find("meta", itemprop="postId").attrs["content"]
     atom_feed = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default" % post_id
     # Get both the JSON version and the Atom XML version.  Make sure they parse.
+    ET.fromstring(  web_cache.get(atom_feed + "?orderby=published&reverse=false&max-results=1000"))
     ET.fromstring(  web_cache.get(atom_feed + "?alt=atom&v=2&orderby=published&reverse=false&max-results=1000"))
     js = json.loads(web_cache.get(atom_feed + "?alt=json&v=2&orderby=published&reverse=false&max-results=1000").decode("utf8"))
     # These avatar images are special, because they're full-size.  Images
