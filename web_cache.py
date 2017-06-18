@@ -16,7 +16,7 @@ ENTRY_VALID = 1
 ENTRY_INVALID = 2
 
 _cache_dir = os.path.dirname(__file__) + "/web_cache"
-_cache_dir_under = None
+_cache_dir_under = os.path.dirname(__file__) + "/web_cache_import"
 POST_REQUEST_SLEEP_TIME = 2.0
 _lock = parallel_locking.make_lock("web_cache")
 
