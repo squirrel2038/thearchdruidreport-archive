@@ -81,9 +81,9 @@ def _generate_file(is_sample):
 
 
     if is_sample:
-        doc.write("blogger_export_sample.xml", xml_declaration=True, encoding="utf8", pretty_print=True)
+        doc.write("blogger_export_sample.xml", xml_declaration=True, encoding="utf-8", pretty_print=True)
     else:
-        doc.write("blogger_export.xml", xml_declaration=True, encoding="utf8", pretty_print=True)
+        doc.write("blogger_export.xml", xml_declaration=True, encoding="utf-8", pretty_print=True)
 
 
 def _main():
