@@ -25,7 +25,7 @@ def comments_xml(postid):
 
 
 def comments_json(postid):
-    url = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default?alt=json&v=2&orderby=published&reverse=false&max-results=1000"
+    url = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default?alt=json&v=2&orderby=published&reverse=false&max-results=1000" % postid
     return json.loads(web_cache.get(url).decode("utf8"))
 
 
@@ -51,4 +51,16 @@ def xml_post_entries_list():
         posts = ET.parse(io.BytesIO(web_cache.get(url)), parser)
         posts = posts.getroot()
         ret += posts.findall("{http://www.w3.org/2005/Atom}entry")
+    return ret[::-1]
+
+
+def json_post_entries_list():
+    # Return a list of all post JSON objects, in order of publishing.
+    ret = []
+    for start in range(1, 600, 100):
+        url = "https://thearchdruidreport.blogspot.com/feeds/posts/default?alt=json&start-index=%d&max-results=100" % start
+        posts = json.loads(web_cache.get(url).decode("utf8"))
+        posts = posts["feed"]["entry"]
+        assert type(posts) is list
+        ret += posts
     return ret[::-1]
