@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
+from copy import deepcopy
 import io
 import re
-import xml.dom.minidom as MD
+import lxml.etree as ET
 
 import feeds
 import web_cache
 import util
 
 
-ARCHIVE_XML_BASE = """<?xml version="1.0" ?>
+ARCHIVE_XML_BASE = """<?xml version="1.0" encoding="UTF8"?>
 <?xml-stylesheet href="http://www.blogger.com/styles/atom.css" type="text/css"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xmlns:gd="http://schemas.google.com/g/2005" xmlns:georss="http://www.georss.org/georss" xmlns:openSearch="http://a9.com/-/spec/opensearchrss/1.0/" xmlns:thr="http://purl.org/syndication/thread/1.0">
     <id>tag:blogger.com,1999:blog-27481991</id>
@@ -25,22 +26,22 @@ ARCHIVE_XML_BASE = """<?xml version="1.0" ?>
     </author>
     <generator uri="http://www.blogger.com" version="7.00">Blogger</generator>
 </feed>
-"""
+""".encode("utf8")
 
 
-def set_entry_category(entry, category):
-    (insert_point,) = entry.getElementsByTagName("updated")
-    insert_point = insert_point.nextSibling
-    assert insert_point.tagName == "title"
-    entry.insertBefore(category.cloneNode(True), insert_point)
+def _set_entry_category(entry, category):
+    (insert_point,) = entry.findall("{http://www.w3.org/2005/Atom}title")
+    assert insert_point.getprevious().tag == "{http://www.w3.org/2005/Atom}updated"
+    entry.insert(entry.index(insert_point), deepcopy(category))
 
 
 def _generate_file(is_sample):
-    (category_post,)    = MD.parseString('<category scheme="http://schemas.google.com/g/2005#kind" term="http://schemas.google.com/blogger/2008/kind#post"/>').getElementsByTagName("category")
-    (category_comment,) = MD.parseString('<category scheme="http://schemas.google.com/g/2005#kind" term="http://schemas.google.com/blogger/2008/kind#comment"/>').getElementsByTagName("category")
+    category_post    = ET.XML('<category scheme="http://schemas.google.com/g/2005#kind" term="http://schemas.google.com/blogger/2008/kind#post"/>')
+    category_comment = ET.XML('<category scheme="http://schemas.google.com/g/2005#kind" term="http://schemas.google.com/blogger/2008/kind#comment"/>')
 
-    doc = MD.parseString("".join(x.strip() for x in ARCHIVE_XML_BASE.splitlines()))
-    (feed,) = doc.getElementsByTagName("feed")
+    parser = ET.XMLParser(remove_blank_text=True)
+    doc = ET.parse(io.BytesIO(ARCHIVE_XML_BASE), parser)
+    feed = doc.getroot()
 
     post_entries = []
     comment_tasks = []
@@ -56,33 +57,34 @@ def _generate_file(is_sample):
                 ]:
             continue
 
-        post = post.cloneNode(True)
+        post = deepcopy(post)
         published = feeds.get_xml_entry_publish_data(post)
-        set_entry_category(post, category_post)
+        _set_entry_category(post, category_post)
         comment_entries.append(((published, 0), post))
 
         comments = feeds.comments_xml(postid)
-        for i, comment in enumerate(comments.getElementsByTagName("entry")):
-            comment = comment.cloneNode(True)
+        for i, comment in enumerate(comments.findall("{http://www.w3.org/2005/Atom}entry")):
+            comment = deepcopy(comment)
             published = feeds.get_xml_entry_publish_data(comment)
-            set_entry_category(comment, category_comment)
+            _set_entry_category(comment, category_comment)
             comment_entries.append(((published, i), comment))
 
     # Insert all posts up-front, in reverse publishing order.
     for entry in post_entries[::-1]:
-        feed.appendChild(entry)
+        feed.append(entry)
 
     # Insert comments from all combined posts, in publishing order.
     assert len({sortkey for sortkey, _ in comment_entries}) == len(comment_entries)
     comment_entries.sort()
     for _, entry in comment_entries:
-        feed.appendChild(entry)
+        feed.append(entry)
+
 
     if is_sample:
-        util.set_file_text("blogger_export_sample.xml", doc.toprettyxml())
+        doc.write("blogger_export_sample.xml", xml_declaration=True, encoding="utf8", pretty_print=True)
     else:
-        util.set_file_text("blogger_export.xml", doc.toprettyxml())
-        util.set_file_text("blogger_export.condensed.xml", doc.toxml())
+        doc.write("blogger_export.xml", xml_declaration=True, encoding="utf8", pretty_print=True)
+        doc.write("blogger_export.condensed.xml", xml_declaration=True, encoding="utf8")
 
 
 def _main():

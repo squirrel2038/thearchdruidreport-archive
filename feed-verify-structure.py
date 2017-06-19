@@ -7,7 +7,7 @@
 from datetime import datetime
 import io
 import re
-import xml.dom.minidom as MD
+import lxml.etree as ET
 
 import feeds
 import post_list
@@ -23,14 +23,14 @@ def _verify_post(postid):
     toplevel_comments = set()
     curtime = feeds.parse_timestamp("1900-01-01T01:00:00.000+00:00")
 
-    for c in comments.getElementsByTagName("entry"):
+    for c in comments.findall("{http://www.w3.org/2005/Atom}entry"):
 
         cid = feeds.get_xml_entry_id(c)
 
         # The <thr:in-reply-to> tag always refers to the postID, not to a
         # parent comment
-        (orig,) = c.getElementsByTagName("thr:in-reply-to")
-        orig = re.match(r"tag:blogger.com,1999:blog-27481991.post-(\d+)$", orig.getAttribute("ref"))
+        (orig,) = c.findall("{http://purl.org/syndication/thread/1.0}in-reply-to")
+        orig = re.match(r"tag:blogger.com,1999:blog-27481991.post-(\d+)$", orig.attrib["ref"])
         orig = orig.group(1)
         assert orig == postid
 
@@ -40,12 +40,12 @@ def _verify_post(postid):
 
         # A nested comment uses <link rel="related"> to refer to its parent
         # comment.  The nesting only goes one level deep.
-        parent = [e for e in c.getElementsByTagName("link") if e.getAttribute("rel") == "related"]
+        parent = [e for e in c.findall("link") if e.attrib["rel"] == "related"]
         if len(parent) == 0:
             toplevel_comments.add(cid)
         else:
             (parent,) = parent
-            parent = re.match(r"http://www.blogger.com/feeds/27481991/\d+/comments/default/(\d+)$", parent.getAttribute("href"))
+            parent = re.match(r"http://www.blogger.com/feeds/27481991/\d+/comments/default/(\d+)$", parent.attrib["href"])
             parent = parent.group(1)
             # The parent ID is one we've already seen, and it was a toplevel
             # comment.
