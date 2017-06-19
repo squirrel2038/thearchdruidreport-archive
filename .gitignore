@@ -6,6 +6,8 @@
 /dist
 /node_modules
 /avatar_urls
+/blogger_export.xml
+/blogger_export_sample.xml
 __pycache__
 *.pyc
 *.min.js
