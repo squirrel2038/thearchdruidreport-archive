@@ -1,6 +1,7 @@
 /plain_web_cache
 /img_cache
 /web_cache
+/web_cache_import
 /thearchdruidreport-archive
 /dist
 /node_modules
