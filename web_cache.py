@@ -137,7 +137,7 @@ def get(url):
                 under_state = _entry_state(_cache_dir_under, url)
                 if under_state != NO_ENTRY:
                     under_path = _canonbase(_cache_dir_under, url)
-                    print("copying request from %s: %s" % (_cache_dir_under, url))
+                    print("copying request from import dir: %s" % url)
                     if under_state == ENTRY_VALID:
                         util.set_file_data(path + ".data",      util.get_file_data(under_path + ".data"))
                     elif under_state == ENTRY_INVALID:
