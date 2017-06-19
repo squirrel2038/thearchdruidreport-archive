@@ -48,21 +48,39 @@ for jpost in posts:
         assert jcomment["content"]["type"] == "html"
         ncomment["content"] = jcomment["content"]["$t"]
         (author,) = jcomment["author"]
-        ncomment["author"] = author["name"]["$t"]
-        ncomment["avatar_url"] = author["gd$image"]["src"]
-        ncomment["avatar_width"] = author["gd$image"]["width"]
-        ncomment["avatar_height"] = author["gd$image"]["height"]
+        ncomment["name"] = author["name"]["$t"]
+        ncomment["profile"] = author["uri"]["$t"]
+
+        avatar_url = author["gd$image"]["src"]
+        avatar_size = (int(author["gd$image"]["width"]), int(author["gd$image"]["height"]))
+        small_avatar = avatar_size[0] < 30 and avatar_size[1] < 30
+        if small_avatar:
+            if avatar_size == (16, 16) and avatar_url == "http://img1.blogblog.com/img/b16-rounded.gif":
+                ncomment["avatar"] = {"type": "blogger"}
+            elif avatar_size == (16, 16) and avatar_url == "http://img1.blogblog.com/img/openid16-rounded.gif":
+                ncomment["avatar"] = {"type": "openid"}
+            else:
+                raise RuntimeError("Invalid avatar info on comment (%s/%s, %s, %s)" % (
+                    npost["postid"], ncomment["commentid"], avatar_url, avatar_size))
+        else:
+            ncomment["avatar"] = {"type": "url", "size": avatar_size, "url": avatar_url}
+
         ncomment["published"] = jcomment["published"]["$t"]
         ncomment["updated"] = jcomment["updated"]["$t"]
         ncomment["title"] = jcomment["title"]["$t"]
         (display_time,) = [p for p in jcomment["gd$extendedProperty"] if p["name"] == "blogger.displayTime"]
         ncomment["display_time"] = display_time["value"]
+        ncomment["comment_removed"] = (
+            len([p for p in jcomment["gd$extendedProperty"] if
+                    (p["name"], p["value"]) == ("blogger.contentRemoved", "true")]) > 0)
 
         related = [x for x in jcomment["link"] if x["rel"] == "related"]
         if len(related) > 0:
             (related,) = related
             related = re.match(r"http://www\.blogger\.com/feeds/27481991/\d+/comments/default/(\d+)\?v=2$", related["href"])
             ncomment["in_reply_to"] = related.group(1)
+        else:
+            ncomment["in_reply_to"] = None
 
         #html_parser = ET.HTMLParser()
         #html = ET.HTML(content)
