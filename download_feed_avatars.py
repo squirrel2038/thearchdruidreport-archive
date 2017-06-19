@@ -31,7 +31,6 @@ def _make_avatar_url_list():
 
 
 def _fetch_avatar_urls():
-    web_cache.set_cache_dir("web_cache_feed_avatars", "web_cache_feed_avatars_import")
     urls = open("avatar_urls", "r").read().splitlines()
     for i, url in enumerate(urls):
         print("[%d/%d] fetching %s ..." % (i + 1, len(urls), url))
