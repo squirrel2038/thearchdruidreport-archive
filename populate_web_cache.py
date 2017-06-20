@@ -191,6 +191,8 @@ _images_added_to_web_cache = set()
 def add_image_to_web_cache(url, kind="image"):
     if url in _images_added_to_web_cache:
         return
+    if url == "":
+        return
     _images_added_to_web_cache.add(url)
 
     secure_url   = re.sub(r"^([a-z]+:)?//", "https://", url)
@@ -208,13 +210,12 @@ def add_image_to_web_cache(url, kind="image"):
     except web_cache.ResourceNotAvailable:
         pass
 
-    if secure_image is None or url.startswith("http://"):
-        try:
-            insecure_bytes = web_cache.get(insecure_url)
-            if util.image_extension(insecure_bytes):
-                insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
-        except web_cache.ResourceNotAvailable:
-            pass
+    try:
+        insecure_bytes = web_cache.get(insecure_url)
+        if util.image_extension(insecure_bytes):
+            insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
+    except web_cache.ResourceNotAvailable:
+        pass
 
     if not secure_image and not insecure_image:
         print("WARNING: Bad %s URL: %s" % (kind, url))
@@ -243,10 +244,6 @@ def _main(apply_, flush):
 
 if __name__ == "__main__":
     parallel.run_main(_main)
-
-
-# Use something like this on mobile to request comments.
-# x = requests.get('https://thearchdruidreport.blogspot.com/feeds/739164683723753251/comments/default?alt=json&v=2&orderby=published&reverse=false&max-results=1000').json
 
 
 # This page has a reply, 125 comments

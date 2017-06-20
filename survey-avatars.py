@@ -8,6 +8,7 @@ import sys
 
 import generate_pages
 import parallel
+import populate_web_cache
 import util
 import web_cache
 
@@ -32,6 +33,7 @@ def json_avatar_fields(comment):
         ret["2-author"] = ""
     elif avatar["type"] == "url":
         url = avatar["url"]
+        populate_web_cache.add_image_to_web_cache(url)
         if url.startswith("//"):
             url = "https:" + url
         ret["0-img-a"] = '<img src="%s" style="max-width: 35px;">' % url

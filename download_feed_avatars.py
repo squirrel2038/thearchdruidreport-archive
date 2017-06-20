@@ -6,6 +6,7 @@ import re
 import requests
 import sys
 
+import feeds
 import populate_web_cache
 import post_list
 import util
@@ -16,10 +17,7 @@ def _make_avatar_url_list():
     seen = set()
     with open("avatar_urls", "wt") as fp:
         for post in post_list.load_posts():
-            url = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default" \
-                  "?alt=json&v=2&orderby=published&reverse=false&max-results=1000" % post.postid
-            js = json.loads(web_cache.get(url).decode("utf8"))
-            for comment in js["feed"]["entry"]:
+            for comment in feeds.comments_json(post.postid):
                 (author,) = comment["author"]
                 avatar = author["gd$image"]
                 int(avatar["width"])
