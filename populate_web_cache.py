@@ -116,14 +116,25 @@ def _crawl_mobile_post_listings(apply_, flush):
 
 
 def _crawl_mobile_post(url):
-    print("Crawling %s ..." % url)
+    print("Crawling mobile version of %s ..." % url)
     sys.stdout.flush()
-    _fetch_page_resources(url)
+    _fetch_page_resources(url + "?m=1")
+
+    # Fetch other comments pages too.  This query works on mobile even though
+    # it's not what the mobile actually does.  (The mobile site has a "Load
+    # More" button that retrieves comments as JSON.  The mobile browser
+    # downloads full-sized originals then downsamples them.)
+    doc = _page(url)
+    m = re.match(r"^(\d+) comments?:$", doc.select_one(".comments").h4.string)
+    comment_count = int(m.group(1))
+    page_count = (comment_count + 199) // 200
+    for i in range(2, page_count + 1):
+        _fetch_page_resources(url + "?commentPage=%d&m=1" % i)
 
 
 def _crawl_mobile_posts(apply_, flush):
     for p in post_list.load_posts():
-        apply_(_crawl_mobile_post, (p.url + "?m=1",))
+        apply_(_crawl_mobile_post, (p.url,))
     flush()
 
 
