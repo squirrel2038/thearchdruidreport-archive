@@ -1,0 +1,74 @@
+The way avatar sizes were handled is a bit of a mess.
+
+ - Each comment has an *original* full-size avatar image.  The Atom feed uses
+   these images exclusively.  These images are typically non-square-shaped and
+   are usually much larger than 35x35.
+
+ - The Atom feed has width/height values that always(?) correspond to the size
+   of the original image when rescaled to fit in a 32x32 box.  Exceptions I
+   know of:
+
+    - If a comment has the stock Blogger or OpenID avatar, then the feed avatar
+      size is 16x16 instead.
+
+    - Sometimes the feed size's largest dimension is only 30.
+
+    - One avatar (comments from 2007/06 to 2007/11) had a feed size and HTML
+      img size of (34, 6).  (Carpool Crew.)  The user doesn't appear to have
+      commented after 2007/11.
+
+    - There are many non-square feed avatars with a 33 width.
+
+    - NOTE: The feed avatar width is *never* greater than 34, and the feed
+      avatar height is *never* greater than 32.
+
+ - Each comment sometimes also has a resized and/or cropped image
+   (*thumbnail*).
+
+ - The desktop site (for all comments) and the mobile site (for the first ~200
+   comments) uses the *thumbnail* image if it exists and the *original*
+   otherwise.
+
+    - The desktop site's img tag has width/height properties that
+      stretches the image to fit in under 35x35, in all but two comments:
+       - img size (36, 27) : http://thearchdruidreport.blogspot.com/2006/11/solstice-2100.html?showComment=1165946460000#c116594646485106471
+       - img size (36, 24) : http://thearchdruidreport.blogspot.com/2008/12/why-dissensus-matters.html?showComment=1229715240000#c3601999970574213501
+
+    - The mobile site's img tag has a max-width style that rescales the image
+      to 36px wide (and any appropriate height).  The height is then capped at
+      36px in a parent div tag.  (There is a 1px border on all sides that tends
+      to be cropped off.)  When the mobile site's image is tall and bigger than
+      a thumbnail, the effect is to crop off the bottom.
+
+    - The mobile site has a "Load More" button that uses the *original* avatar
+      images from the Atom feed rather than thumbnails.
+
+In the earlier comments, the *thumbnail* avatar was sometimes rescaled without
+cropping and sometimes was center-cropped to a square.  Starting around late
+2008, all avatars are center-cropped to a square.  These later comments
+*always* have a thumbnail.
+
+ - There are a few comments caught in the middle of the transition, where the
+   avatar is stretched rather than rescaled.  The ones I noticed all happened
+   on one page.  The HTML img size is 35x35 even though it uses a thumbnail img
+   of varying ratios.
+
+    - (26, 35): https://thearchdruidreport.blogspot.com/2009/02/investment-delusion.html#c3779667438120937435
+    - (25, 35): https://thearchdruidreport.blogspot.com/2009/02/investment-delusion.html#c3751748183633203620
+    - (26, 35): https://thearchdruidreport.blogspot.com/2009/02/investment-delusion.html#c2919792861397581113
+    - (35, 23): https://thearchdruidreport.blogspot.com/2009/02/investment-delusion.html#c4651356147995146579
+
+Without access to the cached HTML pages, it's mostly(?) good enough to simply
+center-crop the feed avatar to a square.  It will badly fail on this one
+comment by "The Dutchman" (https://draft.blogger.com/profile/15634052176803455348):
+ - http://thearchdruidreport.blogspot.com/2007/12/future-that-wasnt-part-one.html?showComment=1198781940000#c5445953326656288006
+This avatar is two squarish photos of faces stacked vertically.
+
+Finally, the desktop site has "Post a Comment" pages that display avatars.  In
+these pages, the avatar appears to the right of the text.  Comments can be
+collapsed and expanded, which may or may not hide the avatar.  The avatars
+appear to be rescaled down to fit within a 60x60 box, with no cropping.
+
+AFAIK, the blog never tries to provide hi-DPI avatar images, except by
+accident (1) for the earlier comments, and (2) the "Load More Comments"
+avatars.

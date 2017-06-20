@@ -47,7 +47,7 @@ for jpost in posts:
 
         ncomment["commentid"] = re.match(r"tag:blogger.com,1999:blog-27481991.post-(\d+)$", jcomment["id"]["$t"]).group(1)
         (author,) = jcomment["author"]
-        ncomment["name"] = author["name"]["$t"]
+        ncomment["author"] = author["name"]["$t"]
         ncomment["profile"] = author["uri"]["$t"]
 
         avatar_url = author["gd$image"]["src"]
