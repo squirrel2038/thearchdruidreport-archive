@@ -39,19 +39,33 @@ def html_avatar_fields(comment):
 
 
 def main(apply_, flush):
-    json_posts = BLOG_JSON[0:100]
+    json_posts = BLOG_JSON
 
     post_html_comments = []
+    post_mobile_comments = []
     for post in json_posts:
         post_html_comments.append(apply_(generate_pages.get_comments, (post["url"],)))
+        post_mobile_comments.append(apply_(generate_pages.get_mobile_comments, (post["url"],)))
 
     rows = OrderedDict()
-    for (post, html_comments) in zip(json_posts, post_html_comments):
+    for (post, html_comments, mobile_comments) in zip(json_posts, post_html_comments, post_mobile_comments):
         print("Checking avatars for %s ..." % post["url"])
+        sys.stdout.flush()
         html_comments = html_comments.get()
+        mobile_comments = mobile_comments.get()
+        mobile_comments = {m.id[1:]: m for m in mobile_comments}
         assert len(post["comments"]) == len(html_comments)
+        assert len(post["comments"]) == len(mobile_comments)
         for jc, hc in zip(post["comments"], html_comments):
             assert jc["commentid"] == hc.id[1:]
+            # With a few exceptions (where there is no avatar at all), the
+            # avatar URLs for the desktop and mobile sites are equal.
+            if hc.avatar_url != mobile_comments[jc["commentid"]].avatar_url:
+                print("MISMATCH DESKTOP/MOBILE %s %s#c%s" % (post["postid"], post["url"], jc["commentid"]))
+                print("desktop:", hc.avatar_url)
+                print("mobile: ", mobile_comments[jc["commentid"]].avatar_url)
+                print("feed:   ", repr(jc["avatar"]))
+                print("---")
             row = {}
             row.update(json_avatar_fields(jc))
             row.update(html_avatar_fields(hc))
@@ -62,7 +76,7 @@ def main(apply_, flush):
             row.append('<a href="%s#c%s">DesktopSSL</a>' % (post["url"], jc["commentid"]))
             row.append('<a href="%s?m=1#c%s">Mobile</a>' % (insecure_url, jc["commentid"]))
             row.append('<a href="%s?m=1#c%s">MobileSSL</a>' % (post["url"], jc["commentid"]))
-            row = "<tr><td>" + "</td><td>".join(row) + "</td></tr>"
+            row = "<tr><td>" + "</td><td>".join(row) + "</td></tr>\n"
             if key not in rows:
                 rows[key] = row
 
