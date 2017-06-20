@@ -62,10 +62,19 @@ def _main_parallel(main):
     assert multiprocessing.get_start_method() == "fork"
     with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
         tasks = []
-        main(apply_=(lambda func, args: tasks.append(pool.apply_async(func, args))),
-             flush=(lambda: [t.get() for t in tasks] and None))
-        for t in tasks:
-            t.get()
+        def applyfunc(func, args):
+            nonlocal pool
+            nonlocal tasks
+            task = pool.apply_async(func, args)
+            tasks.append(task)
+            return task
+        def flushfunc():
+            nonlocal tasks
+            for t in tasks:
+                t.get()
+            return None
+        main(apply_=applyfunc, flush=flushfunc)
+        flushfunc()
 
 
 def run_main(main):
