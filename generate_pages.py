@@ -97,7 +97,7 @@ def _strip_trailing_space(e):
     while len(e.contents) >= 1 and _is_space_element(e.contents[-1]):
         e.contents.pop(-1)
 
-def _get_comments(url):
+def get_comments(url):
     total_count = _get_comments_count(url)
     page_count = (total_count + 199) // 200
     ret = []
@@ -523,7 +523,7 @@ def _gen_blog_post(page_url, include_comments, should_add_hyperlinks):
     # Add comments.
     if include_comments:
         date_outer.select_one(".comments").replace_with(
-            _gen_comments_div(posixpath.basename(page_url), _get_comments(page_url)))
+            _gen_comments_div(posixpath.basename(page_url), get_comments(page_url)))
     else:
         date_outer.select_one(".comments").decompose()
 
