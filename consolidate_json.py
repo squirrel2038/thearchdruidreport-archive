@@ -3,6 +3,7 @@
 # Consolidate all the raw Blogger JSON files into a single, simplified JSON file.
 #
 
+from collections import OrderedDict
 import html
 import io
 import json
@@ -20,20 +21,20 @@ output = []
 
 for jpost in posts:
 
-    npost = {}
+    npost = OrderedDict()
     output.append(npost)
 
     npost["postid"] = re.match(r"tag:blogger.com,1999:blog-27481991.post-(\d+)$", jpost["id"]["$t"]).group(1)
     assert jpost["title"]["type"] == "text"
     npost["title"] = jpost["title"]["$t"]
-    npost["published"] = jpost["published"]["$t"]   # e.g.: 2017-03-08T13:28:00.001-08:00
-    npost["updated"] = jpost["updated"]["$t"]       # e.g.: 2017-03-08T13:32:19.336-08:00
-
     (link,) = [x for x in jpost["link"] if x["rel"] == "alternate"]
     npost["title_formatted"] = link["title"]
     m = re.match(r"http://thearchdruidreport\.blogspot\.com/(20../../.*\.html)$", link["href"])
     url = "https://thearchdruidreport.blogspot.com/" + m.group(1)
     npost["url"] = url
+
+    npost["published"] = jpost["published"]["$t"]   # e.g.: 2017-03-08T13:28:00.001-08:00
+    npost["updated"] = jpost["updated"]["$t"]       # e.g.: 2017-03-08T13:32:19.336-08:00
 
     assert jpost["content"]["type"] == "html"
     npost["content"] = jpost["content"]["$t"]
@@ -41,12 +42,10 @@ for jpost in posts:
 
     for jcomment in feeds.comments_json(npost["postid"]):
 
-        ncomment = {}
+        ncomment = OrderedDict()
         npost["comments"].append(ncomment)
 
         ncomment["commentid"] = re.match(r"tag:blogger.com,1999:blog-27481991.post-(\d+)$", jcomment["id"]["$t"]).group(1)
-        assert jcomment["content"]["type"] == "html"
-        ncomment["content"] = jcomment["content"]["$t"]
         (author,) = jcomment["author"]
         ncomment["name"] = author["name"]["$t"]
         ncomment["profile"] = author["uri"]["$t"]
@@ -67,7 +66,6 @@ for jpost in posts:
 
         ncomment["published"] = jcomment["published"]["$t"]
         ncomment["updated"] = jcomment["updated"]["$t"]
-        ncomment["title"] = jcomment["title"]["$t"]
         (display_time,) = [p for p in jcomment["gd$extendedProperty"] if p["name"] == "blogger.displayTime"]
         ncomment["display_time"] = display_time["value"]
         ncomment["comment_removed"] = (
@@ -82,6 +80,10 @@ for jpost in posts:
         else:
             ncomment["in_reply_to"] = None
 
+        ncomment["title"] = jcomment["title"]["$t"]
+        assert jcomment["content"]["type"] == "html"
+        ncomment["content"] = jcomment["content"]["$t"]
+
         #html_parser = ET.HTMLParser()
         #html = ET.HTML(content)
         # doc = ET.parse(io.StringIO(content), html_parser)
@@ -92,4 +94,4 @@ for jpost in posts:
         #break
 
 
-util.set_file_text("blog.json", json.dumps(output, indent=2, sort_keys=True))
+util.set_file_text("blog.json", json.dumps(output, indent=2))
