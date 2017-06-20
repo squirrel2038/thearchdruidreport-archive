@@ -68,10 +68,16 @@ def _fetch_page_resources(url):
     for img in doc.find_all("img"):
         assert "delayLoad" not in img.attrs.get("class", [])
         assert "longdesc" not in img.attrs
+        img_url = urllib.parse.urljoin(url, img.attrs["src"])
         try:
-            web_cache.get(urllib.parse.urljoin(url, img.attrs["src"]))
-        except web_cache.ResourceNotAvailable:
-            pass
+            web_cache.get(img_url)
+        except web_cache.ResourceNotAvailable as exc:
+            if (url.startswith("https://")) and "SSLError" in exc.reason:
+                img_url = re.sub(r"^https://", "http://", img_url)
+                try:
+                    web_cache.get(img_url)
+                except web_cache.ResourceNotAvailable:
+                    pass
 
         # As in generate_pages.py, if we have an image linking to a another
         # (i.e. bigger) Blogspot image, cache the linked image.  (This step
