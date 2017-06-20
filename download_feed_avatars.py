@@ -6,6 +6,7 @@ import re
 import requests
 import sys
 
+import populate_web_cache
 import post_list
 import util
 import web_cache
@@ -34,32 +35,7 @@ def _fetch_avatar_urls():
     urls = open("avatar_urls", "r").read().splitlines()
     for i, url in enumerate(urls):
         print("[%d/%d] fetching %s ..." % (i + 1, len(urls), url))
-
-        secure_url   = re.sub(r"([a-z]+:)?//", "https://", url)
-        insecure_url = re.sub(r"([a-z]+:)?//", "http://", url)
-
-        secure_bytes = None
-        secure_image = None
-        insecure_bytes = None
-        insecure_image = None
-
-        try:
-            secure_bytes = web_cache.get(secure_url)
-            if util.image_extension(secure_bytes):
-                secure_image = PIL.Image.open(io.BytesIO(secure_bytes))
-        except web_cache.ResourceNotAvailable:
-            pass
-
-        if secure_image is None or url.startswith("http://"):
-            try:
-                insecure_bytes = web_cache.get(insecure_url)
-                if util.image_extension(insecure_bytes):
-                    insecure_image = PIL.Image.open(io.BytesIO(insecure_bytes))
-            except web_cache.ResourceNotAvailable:
-                pass
-
-        if not secure_image and not insecure_image:
-            print("WARNING: Bad avatar URL: %s" % url)
+        populate_web_cache.add_image_to_web_cache(url, kind="avatar")
 
 
 if sys.argv[1] == "list":
