@@ -39,7 +39,7 @@ for jpost in posts:
     npost["content"] = jpost["content"]["$t"]
     npost["comments"] = []
 
-    for jcomment in feeds.comments_json(npost["postid"])["feed"]["entry"]:
+    for jcomment in feeds.comments_json(npost["postid"]):
 
         ncomment = {}
         npost["comments"].append(ncomment)

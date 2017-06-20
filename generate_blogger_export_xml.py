@@ -63,7 +63,7 @@ def _generate_file(is_sample):
         post_entries.append(post)
 
         comments = feeds.comments_xml(postid)
-        for i, comment in enumerate(comments.findall("{http://www.w3.org/2005/Atom}entry")):
+        for i, comment in enumerate(comments):
             comment = deepcopy(comment)
             published = feeds.get_xml_entry_publish_data(comment)
             _set_entry_category(comment, category_comment)

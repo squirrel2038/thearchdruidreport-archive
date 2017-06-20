@@ -16,17 +16,49 @@ def parse_timestamp(stamp):
     return ret
 
 
-def comments_xml(postid):
-    # Return the XML feed document (lxml ElementTree) containing comments for
-    # the given post ID, in order of publishing.
-    url = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default?orderby=published&reverse=false&max-results=1000" % postid
-    parser = ET.XMLParser(remove_blank_text=True)
-    return ET.parse(io.BytesIO(web_cache.get(url)), parser)
+def comments_url(postid, kind=None, ver=None, start=None, max_results=None):
+    # The `start` index starts at 1, not 0, because that's the convention
+    # the Blogger URL uses.
+    url = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default" % postid
+    params = []
+    if kind is not None:
+        params.append("alt=%s" % kind)
+    if ver is not None:
+        params.append("v=%d" % ver)
+    params.append("orderby=published")
+    params.append("reverse=false")
+    if start is not None:
+        params.append("start-index=%d" % start)
+    if max_results is not None:
+        params.append("max-results=%d" % max_results)
+    return url + "?" + "&".join(params)
+
+
+def comments_xml(postid, kind=None, ver=None):
+    # Return a list of <entry> tags for the given post ID, in order of
+    # publishing.
+    ret = []
+    for start in range(1, 1000, 250):
+        url = comments_url(postid, kind=kind, ver=ver, start=start, max_results=250)
+        doc = ET.parse(io.BytesIO(web_cache.get(url)))
+        batch = doc.findall("{http://www.w3.org/2005/Atom}entry")
+        ret += batch
+        if len(batch) < 250:
+            break
+    return ret
 
 
 def comments_json(postid):
-    url = "https://thearchdruidreport.blogspot.com/feeds/%s/comments/default?alt=json&v=2&orderby=published&reverse=false&max-results=1000" % postid
-    return json.loads(web_cache.get(url).decode("utf8"))
+    ret = []
+    for start in range(1, 1000, 250):
+        url = comments_url(postid, kind="json", ver=2, start=start, max_results=250)
+        doc = json.loads(web_cache.get(url).decode("utf8"))
+        batch = doc["feed"].get("entry", [])
+        assert type(batch) is list
+        ret += batch
+        if len(batch) < 250:
+            break
+    return ret
 
 
 def get_xml_entry_publish_data(entry):
