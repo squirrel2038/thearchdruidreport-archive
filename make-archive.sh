@@ -23,7 +23,7 @@ ARCHIVES="$ARCHIVES web_cache$ADR_SUFFIX.tar.xz"
 if [ "$ADR_RETRY" != "" ]; then
     # Retry each failed web request on the first run.  If requests were copied
     # from a previous run, doing the extra requests isn't too expensive.
-    echo "Removing failed web requests..."
+    echo "RUN1: Removing failed web requests..."
     [ -e web_cache ] && ./remove-web-cache-failures.sh web_cache
 fi
 
@@ -42,11 +42,19 @@ cp blog.json                 dist/blog${ADR_SUFFIX}.json
 
 if [ "$ADR_RETRY" != "" ]; then
     # Retry each failed web request a second time.
-    echo "Removing failed web requests and regenerating..."
+    echo "RUN2: Removing failed web requests and regenerating..."
     ./remove-web-cache-failures.sh web_cache
     ./populate_web_cache.py
     ./download_feed_avatars.py fetch
     ./generate_pages.py
+    ./survey-avatars.py
+
+    echo "RUN3: Removing failed web requests and regenerating..."
+    ./remove-web-cache-failures.sh web_cache
+    ./populate_web_cache.py
+    ./download_feed_avatars.py fetch
+    ./generate_pages.py
+    ./survey-avatars.py
 fi
 
 find thearchdruidreport-archive -type f | sort > dist/thearchdruidreport-archive$ADR_SUFFIX.tar.xz.list
