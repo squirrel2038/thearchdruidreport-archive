@@ -33,8 +33,11 @@ fi
 ./download_feed_avatars.py fetch
 ./generate_pages.py
 ./generate_blogger_export_xml.py
+./consolidate_json.py
+./survey-avatars.py
 cp blogger_export.xml        dist/blogger_export${ADR_SUFFIX}.xml
 cp blogger_export_sample.xml dist/blogger_export_sample${ADR_SUFFIX}.xml
+cp blog.json                 dist/blog${ADR_SUFFIX}.json
 
 if [ "$ADR_RETRY" != "" ]; then
     # Retry each failed web request a second time.
