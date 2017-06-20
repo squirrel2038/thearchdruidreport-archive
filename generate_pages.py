@@ -167,6 +167,40 @@ def get_comments(url):
     return ret
 
 
+def get_mobile_comments(url):
+    assert "m=1" not in url
+    total_count = _get_comments_count(url)
+    page_count = (total_count + 199) // 200
+    ret = []
+    for page in range(1, page_count + 1):
+        page_url = (url + "?m=1") if page == 1 else url + ("?commentPage=%d&m=1" % page)
+        page_comments = _page(page_url).select_one("div.comment-thread")
+        for comment in page_comments.select(".comment"):
+            c = BlogComment()
+            block = comment.select_one(".comment-block")
+            c.id = str(block.attrs["id"])
+            img = comment.select_one(".avatar-image-container").img
+            assert "width" not in img.attrs
+            assert "height" not in img.attrs
+            c.avatar_url = str(img.attrs["src"])
+            c.avatar_size = None # The mobile site doesn't specify sizes on the images.
+            c.profile_url = str(block.select_one("cite.user").a.attrs["href"])
+            (anchor_contents,) = block.select_one("cite.user").a.contents
+            if anchor_contents.name == "b":
+                (anchor_contents,) = anchor_contents.contents
+            assert anchor_contents.name is None
+            c.author_name = str(anchor_contents.string)
+            c.timestamp = str(block.select_one("span.datetime").a.string)
+            body = _copy_soup(comment.select_one(".comment-content"))
+            del body.attrs["id"]
+            if len(body.contents) == 1 and body.contents[0].name == "span" and body.contents[0].attrs["class"] == ["deleted-comment"]:
+                (body,) = body.contents
+            c.body = str(body)
+            ret.append(c)
+
+    return ret
+
+
 def _month_name(no):
     return [
         "January",
